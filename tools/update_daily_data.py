@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import html as html_lib
 import json
 import math
@@ -30,9 +31,15 @@ HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9",
 }
 OUTCOME_LABELS = {"home": "主胜", "draw": "平局", "away": "客胜"}
+OUTCOME_KEYS = {label: key for key, label in OUTCOME_LABELS.items()}
 DEFAULT_BASE_HISTORY_SAMPLE = 21138
 DEFAULT_BASE_FINISHED_SAMPLE = 21032
 DEFAULT_BASE_HISTORY_START = "2021-07-02"
+ODDS_SNAPSHOT_THRESHOLD = 0.03
+ODDS_RECOMMENDATION_CHANGE_THRESHOLD = 0.10
+IMPLIED_RECOMMENDATION_CHANGE_THRESHOLD = 0.025
+LOCK_WINDOW_MINUTES = 90
+MAX_ANALYSIS_SNAPSHOTS = 36
 LEAGUE_ALIASES = {
     "美职足": "美职联",
 }
@@ -77,6 +84,7 @@ def main() -> None:
         intelligence = collect_match_intelligence(current_rows, old_payload.get("matches") or [], warnings)
         matches = [build_match(row, profiles, team_profiles, intelligence.get(str(row.get("id")))) for row in current_rows]
         matches = balance_slate_decisions(current_rows, matches, profiles, team_profiles, intelligence)
+        matches = apply_analysis_tracking(old_payload.get("matches") or [], matches)
         update_status = "success" if current_rows else "success-no-current-matches"
 
     archive = update_analysis_archive(old_archive, matches, history, args.history_retention)
@@ -869,7 +877,10 @@ def build_match(
             "mode": "500竞彩即时盘", "dropSide": "待临场", "dropBucket": "即时快照",
         },
         "probabilities": probs, "leagueProfile": profile,
-        "modelBlend": {"marketWeight": market_weight, "leagueWeight": league_weight, "teamWeight": team_weight, "teamCoverage": team_view.get("coverage")},
+        "modelBlend": {
+            "marketWeight": market_weight, "leagueWeight": league_weight, "teamWeight": team_weight,
+            "teamCoverage": team_view.get("coverage"), "teamProbabilities": team_probs,
+        },
         "intelligence": intelligence,
         "intelligenceAdjustment": intelligence_adjustment,
         "grid": {"signal": "500 SP基线", "roi": None, "sample": profile.get("sample"), "bucket": "JCToday/Live"},
@@ -1555,6 +1566,503 @@ def default_profile(league: str) -> dict[str, Any]:
             "kellyHitRate": 0, "over25Rate": 0.50, "reliable": False, "source": "综合基线"}
 
 
+def apply_analysis_tracking(
+    old_matches: list[dict[str, Any]],
+    matches: list[dict[str, Any]],
+    at: datetime | None = None,
+) -> list[dict[str, Any]]:
+    captured_at = at or datetime.now(ZoneInfo("Asia/Shanghai"))
+    if captured_at.tzinfo is None:
+        captured_at = captured_at.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+    return [
+        track_match_analysis(find_previous_match(match, old_matches), match, captured_at)
+        for match in matches
+    ]
+
+
+def find_previous_match(match: dict[str, Any], old_matches: list[dict[str, Any]]) -> dict[str, Any] | None:
+    match_id = str(match.get("id") or "")
+    fixture_id = str(match.get("fixtureId") or "")
+    for previous in old_matches:
+        if match_id and str(previous.get("id") or "") == match_id:
+            return previous
+        if fixture_id and str(previous.get("fixtureId") or "") == fixture_id:
+            return previous
+    for previous in old_matches:
+        if (
+            str(previous.get("date") or "")[:10] == str(match.get("date") or "")[:10]
+            and str(previous.get("round") or "") == str(match.get("round") or "")
+            and normalize_team(previous.get("home")) == normalize_team(match.get("home"))
+            and normalize_team(previous.get("away")) == normalize_team(match.get("away"))
+        ):
+            return previous
+    return None
+
+
+def track_match_analysis(
+    previous: dict[str, Any] | None,
+    fresh_match: dict[str, Any],
+    captured_at: datetime,
+) -> dict[str, Any]:
+    match = copy.deepcopy(fresh_match)
+    fresh_snapshot_match = copy.deepcopy(fresh_match)
+    captured_text = captured_at.isoformat(timespec="seconds")
+    current_odds = clean_odds((match.get("odds") or {}).get("current"))
+    previous_odds = clean_odds(((previous or {}).get("odds") or {}).get("current")) or current_odds
+    previous_tracking = copy.deepcopy((previous or {}).get("analysisTracking") or {})
+    initial_odds = clean_odds(previous_tracking.get("initialOdds"))
+    if not initial_odds:
+        initial_odds = clean_odds(((previous or {}).get("odds") or {}).get("initial")) or previous_odds or current_odds
+    set_tracked_odds(match, initial_odds, previous_odds, current_odds)
+
+    kickoff = parse_match_datetime(match.get("date"))
+    lock_due = bool(kickoff and captured_at >= kickoff - timedelta(minutes=LOCK_WINDOW_MINUTES))
+    after_kickoff = bool(kickoff and captured_at >= kickoff)
+    candidate_primary = str((fresh_snapshot_match.get("conclusion") or {}).get("primary") or "--")
+
+    if previous is None:
+        reason = "首次载入赛事，已保存初始赔率与初始研判。"
+        initial = analysis_snapshot(match, captured_text, "initial", current_odds, True, reason)
+        snapshots = [initial]
+        tracking = {
+            "status": "initial",
+            "firstSeenAt": captured_text,
+            "updatedAt": captured_text,
+            "initialOdds": initial_odds,
+            "initial": initial,
+            "latest": initial,
+            "locked": False,
+            "lockedAt": "",
+            "lockedSnapshot": None,
+            "decisionAnchor": {"at": captured_text, "primary": candidate_primary, "odds": current_odds},
+            "change": {
+                "meaningful": True, "recommendationChanged": False, "accepted": True,
+                "oldPrimary": candidate_primary, "newPrimary": candidate_primary,
+                "supportCount": 0, "supportAgents": [], "maxOddsMove": 0.0,
+                "maxImpliedMove": 0.0, "reason": reason,
+            },
+            "snapshots": snapshots,
+        }
+        if lock_due:
+            lock_reason = "首次抓取已进入临场窗口，当前可用研判直接锁定。"
+            locked = analysis_snapshot(match, captured_text, "locked", current_odds, True, lock_reason)
+            tracking.update({"status": "locked", "locked": True, "lockedAt": captured_text, "lockedSnapshot": locked, "latest": locked})
+            tracking["change"]["reason"] = lock_reason
+            tracking["snapshots"] = append_snapshot(snapshots, locked)
+        match["analysisTracking"] = tracking
+        append_tracking_agent(match, tracking)
+        return match
+
+    previous_primary = str((previous.get("conclusion") or {}).get("primary") or "--")
+    first_seen_at = str(previous_tracking.get("firstSeenAt") or analysis_time(previous) or captured_text)
+    initial = copy.deepcopy(previous_tracking.get("initial"))
+    if not initial:
+        initial = analysis_snapshot(previous, first_seen_at, "initial", initial_odds, True, "由上一版赛事数据迁移为初始研判。")
+    snapshots = copy.deepcopy(previous_tracking.get("snapshots") or [initial])
+    decision_anchor = copy.deepcopy(previous_tracking.get("decisionAnchor")) or {
+        "at": str(previous_tracking.get("updatedAt") or analysis_time(previous) or first_seen_at),
+        "primary": previous_primary,
+        "odds": previous_odds,
+    }
+    anchor_odds = clean_odds(decision_anchor.get("odds")) or previous_odds
+    max_odds_move = max_odds_delta(anchor_odds, current_odds)
+    max_implied_move = max_implied_probability_delta(anchor_odds, current_odds)
+    support_agents = decision_change_support_agents(fresh_snapshot_match, previous_primary, candidate_primary)
+    recommendation_changed = candidate_primary != previous_primary
+    qualifies_market_move = (
+        max_odds_move >= ODDS_RECOMMENDATION_CHANGE_THRESHOLD
+        or max_implied_move >= IMPLIED_RECOMMENDATION_CHANGE_THRESHOLD
+    )
+    change_accepted = not recommendation_changed or (qualifies_market_move and len(support_agents) >= 2)
+
+    if previous_tracking.get("locked"):
+        restore_decision(match, previous)
+        reason = "临场结论已经锁定，后续赔率只记录变化，不再追改最终主判。"
+        latest = copy.deepcopy(previous_tracking.get("lockedSnapshot") or previous_tracking.get("latest"))
+        candidate = analysis_snapshot(fresh_snapshot_match, captured_text, "post-lock", current_odds, False, reason, candidate_primary)
+        if snapshot_is_meaningful(snapshots[-1] if snapshots else None, candidate):
+            snapshots = append_snapshot(snapshots, candidate)
+        tracking = {
+            **previous_tracking,
+            "status": "locked",
+            "updatedAt": captured_text,
+            "initialOdds": initial_odds,
+            "initial": initial,
+            "latest": latest,
+            "candidate": candidate,
+            "change": build_change_record(
+                previous_primary, candidate_primary, recommendation_changed, False, support_agents,
+                max_odds_move, max_implied_move, reason,
+            ),
+            "snapshots": snapshots,
+        }
+        match["analysisTracking"] = tracking
+        append_tracking_agent(match, tracking)
+        return match
+
+    if after_kickoff:
+        restore_decision(match, previous)
+        lock_capture_at = str(previous_tracking.get("updatedAt") or analysis_time(previous) or captured_text)
+        lock_reason = "比赛已开始，系统按赛前最后一次可用研判锁定，拒绝使用赛中赔率改写观点。"
+        locked = analysis_snapshot(match, lock_capture_at, "locked", previous_odds, True, lock_reason)
+        if recommendation_changed:
+            candidate = analysis_snapshot(fresh_snapshot_match, captured_text, "post-lock", current_odds, False, lock_reason, candidate_primary)
+            if snapshot_is_meaningful(snapshots[-1] if snapshots else None, candidate):
+                snapshots = append_snapshot(snapshots, candidate)
+        snapshots = append_snapshot(snapshots, locked)
+        tracking = {
+            **previous_tracking,
+            "status": "locked", "firstSeenAt": first_seen_at, "updatedAt": captured_text,
+            "initialOdds": initial_odds, "initial": initial, "latest": locked,
+            "locked": True, "lockedAt": captured_text, "lockedSnapshot": locked,
+            "decisionAnchor": decision_anchor,
+            "change": build_change_record(
+                previous_primary, candidate_primary, recommendation_changed, False, support_agents,
+                max_odds_move, max_implied_move, lock_reason,
+            ),
+            "snapshots": snapshots,
+        }
+        match["analysisTracking"] = tracking
+        append_tracking_agent(match, tracking)
+        return match
+
+    if recommendation_changed and not change_accepted:
+        restore_decision(match, previous)
+        missing = []
+        if not qualifies_market_move:
+            missing.append(
+                f"变盘未达门槛（最大SP变化{max_odds_move:.2f}，归一化概率变化{max_implied_move:.1%}）"
+            )
+        if len(support_agents) < 2:
+            missing.append(f"独立核心Agent仅{len(support_agents)}席支持")
+        reason = f"候选主判由{previous_primary}变为{candidate_primary}，但{'；'.join(missing)}，因此维持原判。"
+        candidate = analysis_snapshot(fresh_snapshot_match, captured_text, "review", current_odds, False, reason, candidate_primary)
+        if snapshot_is_meaningful(snapshots[-1] if snapshots else None, candidate):
+            snapshots = append_snapshot(snapshots, candidate)
+        latest = analysis_snapshot(match, captured_text, "latest", current_odds, True, reason, candidate_primary)
+        status = "held"
+    else:
+        if recommendation_changed:
+            reason = (
+                f"最大SP变化{max_odds_move:.2f}、归一化概率变化{max_implied_move:.1%}，"
+                f"并获{len(support_agents)}席独立核心Agent支持，主判由{previous_primary}改为{candidate_primary}。"
+            )
+            decision_anchor = {"at": captured_text, "primary": candidate_primary, "odds": current_odds}
+            status = "changed"
+        else:
+            reason = f"最新赔率复核后仍维持{candidate_primary}，方向未发生改判。"
+            status = "steady"
+        latest = analysis_snapshot(match, captured_text, "latest", current_odds, True, reason, candidate_primary)
+        if snapshot_is_meaningful(snapshots[-1] if snapshots else None, latest):
+            snapshots = append_snapshot(snapshots, latest)
+
+    locked_snapshot = None
+    locked_at = ""
+    if lock_due:
+        lock_reason = f"已进入开赛前{LOCK_WINDOW_MINUTES}分钟临场窗口，最终结论锁定为{(match.get('conclusion') or {}).get('primary') or '--'}。"
+        locked_snapshot = analysis_snapshot(match, captured_text, "locked", current_odds, True, lock_reason)
+        snapshots = append_snapshot(snapshots, locked_snapshot)
+        latest = locked_snapshot
+        locked_at = captured_text
+        status = "locked"
+        reason = f"{reason} {lock_reason}"
+
+    tracking = {
+        "status": status, "firstSeenAt": first_seen_at, "updatedAt": captured_text,
+        "initialOdds": initial_odds, "initial": initial, "latest": latest,
+        "locked": bool(locked_snapshot), "lockedAt": locked_at, "lockedSnapshot": locked_snapshot,
+        "decisionAnchor": decision_anchor,
+        "change": build_change_record(
+            previous_primary, candidate_primary, recommendation_changed, change_accepted,
+            support_agents, max_odds_move, max_implied_move, reason,
+        ),
+        "snapshots": snapshots,
+    }
+    if recommendation_changed and not change_accepted:
+        tracking["candidate"] = candidate
+    match["analysisTracking"] = tracking
+    append_tracking_agent(match, tracking)
+    return match
+
+
+def clean_odds(value: Any) -> dict[str, float]:
+    if not isinstance(value, dict):
+        return {}
+    output: dict[str, float] = {}
+    for key in ("home", "draw", "away"):
+        parsed = float_or_none(value.get(key))
+        if parsed and parsed > 1:
+            output[key] = round(parsed, 3)
+    return output if len(output) == 3 else {}
+
+
+def set_tracked_odds(
+    match: dict[str, Any],
+    initial: dict[str, float],
+    previous: dict[str, float],
+    current: dict[str, float],
+) -> None:
+    odds = match.setdefault("odds", {})
+    initial = initial or current
+    previous = previous or initial
+    current = current or previous
+    delta_initial = {key: round(current[key] - initial[key], 3) for key in OUTCOME_LABELS}
+    delta_previous = {key: round(current[key] - previous[key], 3) for key in OUTCOME_LABELS}
+    current_move = format_odds_movement(initial, current)
+    previous_move = format_odds_movement(previous, current)
+    biggest_drop_key = min(delta_initial, key=delta_initial.get)
+    biggest_drop = delta_initial[biggest_drop_key]
+    magnitude = max(abs(value) for value in delta_initial.values())
+    if magnitude < ODDS_SNAPSHOT_THRESHOLD:
+        bucket = "轻微波动"
+    elif magnitude < ODDS_RECOMMENDATION_CHANGE_THRESHOLD:
+        bucket = "有效变化"
+    elif magnitude < 0.20:
+        bucket = "明显变盘"
+    else:
+        bucket = "剧烈变盘"
+    favorite_key = min(current, key=current.get)
+    favorite_delta = current[favorite_key] - initial[favorite_key]
+    odds.update({
+        "initial": initial, "previous": previous, "current": current,
+        "shape": f"{current['home']}/{current['draw']}/{current['away']}",
+        "deltaFromInitial": delta_initial, "deltaFromPrevious": delta_previous,
+        "movement": current_move,
+        "movementCombo": f"相对初始：{current_move}；较上次：{previous_move}",
+        "favorite": OUTCOME_LABELS[favorite_key], "favoriteOdds": current[favorite_key],
+        "favoriteChange": format_single_odds_change(favorite_delta),
+        "gap": abs(current["home"] - current["away"]),
+        "gapLabel": "均势盘" if abs(current["home"] - current["away"]) <= 0.5 else "强弱分层",
+        "mode": bucket,
+        "dropSide": OUTCOME_LABELS[biggest_drop_key] if biggest_drop <= -ODDS_SNAPSHOT_THRESHOLD else "无明显降赔",
+        "dropBucket": format_single_odds_change(biggest_drop) if biggest_drop <= -ODDS_SNAPSHOT_THRESHOLD else bucket,
+        "movementMagnitude": round(magnitude, 3),
+    })
+
+
+def format_odds_movement(before: dict[str, float], after: dict[str, float]) -> str:
+    if not before or not after:
+        return "赔率变化待记录"
+    return " · ".join(
+        f"{OUTCOME_LABELS[key]}{format_single_odds_change(after[key] - before[key])}"
+        for key in ("home", "draw", "away")
+    )
+
+
+def format_single_odds_change(delta: float) -> str:
+    if abs(delta) < 0.005:
+        return "不变"
+    return f"{'升' if delta > 0 else '降'}{abs(delta):.2f}"
+
+
+def max_odds_delta(before: dict[str, float], after: dict[str, float]) -> float:
+    if not before or not after:
+        return 0.0
+    return round(max(abs(after[key] - before[key]) for key in OUTCOME_LABELS), 4)
+
+
+def max_implied_probability_delta(before: dict[str, float], after: dict[str, float]) -> float:
+    if not before or not after:
+        return 0.0
+    before_probs = implied_probabilities(before["home"], before["draw"], before["away"])
+    after_probs = implied_probabilities(after["home"], after["draw"], after["away"])
+    return round(max(abs(after_probs[key] - before_probs[key]) for key in OUTCOME_LABELS), 4)
+
+
+def analysis_snapshot(
+    match: dict[str, Any],
+    at: str,
+    stage: str,
+    odds: dict[str, float],
+    accepted: bool,
+    reason: str,
+    candidate_primary: str | None = None,
+) -> dict[str, Any]:
+    conclusion = match.get("conclusion") or {}
+    return {
+        "at": at, "stage": stage, "odds": clean_odds(odds),
+        "primary": conclusion.get("primary"),
+        "candidatePrimary": candidate_primary or conclusion.get("primary"),
+        "cover": conclusion.get("cover"), "confidence": conclusion.get("confidence"),
+        "decisionMode": conclusion.get("decisionMode") or "base",
+        "bestScores": copy.deepcopy(conclusion.get("bestScores") or []),
+        "coldScores": copy.deepcopy(conclusion.get("coldScores") or []),
+        "overUnder": conclusion.get("overUnder"),
+        "upsetScore": (match.get("upset") or {}).get("score"),
+        "accepted": accepted, "reason": reason,
+    }
+
+
+def snapshot_is_meaningful(previous: dict[str, Any] | None, current: dict[str, Any]) -> bool:
+    if not previous:
+        return True
+    return (
+        max_odds_delta(clean_odds(previous.get("odds")), clean_odds(current.get("odds"))) >= ODDS_SNAPSHOT_THRESHOLD
+        or str(previous.get("candidatePrimary") or previous.get("primary")) != str(current.get("candidatePrimary") or current.get("primary"))
+        or str(previous.get("cover") or "") != str(current.get("cover") or "")
+        or bool(previous.get("accepted")) != bool(current.get("accepted"))
+    )
+
+
+def append_snapshot(snapshots: list[dict[str, Any]], snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    output = copy.deepcopy(snapshots)
+    signature = (
+        snapshot.get("stage"), snapshot.get("at"), snapshot.get("primary"), snapshot.get("candidatePrimary"),
+        snapshot.get("cover"), json.dumps(snapshot.get("odds") or {}, sort_keys=True, ensure_ascii=False),
+    )
+    if not output or signature != (
+        output[-1].get("stage"), output[-1].get("at"), output[-1].get("primary"), output[-1].get("candidatePrimary"),
+        output[-1].get("cover"), json.dumps(output[-1].get("odds") or {}, sort_keys=True, ensure_ascii=False),
+    ):
+        output.append(snapshot)
+    return output[-MAX_ANALYSIS_SNAPSHOTS:]
+
+
+def decision_change_support_agents(
+    match: dict[str, Any],
+    previous_primary: str,
+    candidate_primary: str,
+) -> list[str]:
+    if candidate_primary == previous_primary or candidate_primary not in OUTCOME_KEYS:
+        return []
+    candidate_key = OUTCOME_KEYS[candidate_primary]
+    previous_key = OUTCOME_KEYS.get(previous_primary)
+    supports: list[str] = []
+
+    upset_roundtable = (match.get("upset") or {}).get("roundtable") or {}
+    if upset_roundtable.get("bold") and OUTCOME_LABELS.get(str(upset_roundtable.get("pickKey"))) == candidate_primary:
+        core_count = int(upset_roundtable.get("coreSupports") or 0)
+        supports.extend([
+            name for name in (upset_roundtable.get("supportAgents") or [])
+            if "赔率" not in str(name)
+        ][:core_count])
+
+    if candidate_primary == "平局":
+        draw_roundtable = (match.get("antiDraw") or {}).get("roundtable") or {}
+        core_count = int(draw_roundtable.get("coreSupports") or 0)
+        supports.extend([
+            name for name in (draw_roundtable.get("supportAgents") or [])
+            if "赔率" not in str(name)
+        ][:core_count])
+
+    probabilities = match.get("probabilities") or {}
+    if probabilities and max(probabilities, key=probabilities.get) == candidate_key:
+        previous_probability = float(probabilities.get(previous_key) or 0) if previous_key else 0
+        if float(probabilities.get(candidate_key) or 0) >= previous_probability + 0.01:
+            supports.append("概率模型Agent")
+
+    best_scores = (match.get("conclusion") or {}).get("bestScores") or []
+    if best_scores and score_outcome(str(best_scores[0].get("score") or "")) == candidate_primary:
+        supports.append("比分结构Agent")
+
+    team_probabilities = (match.get("modelBlend") or {}).get("teamProbabilities") or {}
+    if team_probabilities and max(team_probabilities, key=team_probabilities.get) == candidate_key:
+        supports.append("球队画像Agent")
+
+    profile = match.get("leagueProfile") or {}
+    if profile.get("topOutcome") == candidate_primary and int(profile.get("sample") or 0) >= 30:
+        supports.append("联赛画像Agent")
+
+    adjustment = match.get("intelligenceAdjustment") or {}
+    directional_shift = float(adjustment.get("directionalShift") or 0)
+    if (candidate_primary == "主胜" and directional_shift >= 0.01) or (candidate_primary == "客胜" and directional_shift <= -0.01):
+        supports.append("阵容情报Agent")
+    if candidate_primary == "平局" and float(adjustment.get("drawUncertainty") or 0) >= 0.01:
+        supports.append("阵容情报Agent")
+    return list(dict.fromkeys(str(name) for name in supports if name))
+
+
+def score_outcome(value: str) -> str:
+    match = re.fullmatch(r"\s*(\d+)\s*[-:]\s*(\d+)\s*", value or "")
+    if not match:
+        return ""
+    home_score, away_score = int(match.group(1)), int(match.group(2))
+    return "主胜" if home_score > away_score else ("客胜" if home_score < away_score else "平局")
+
+
+def restore_decision(match: dict[str, Any], previous: dict[str, Any]) -> None:
+    for key in ("probabilities", "upset", "antiDraw", "conclusion", "agents"):
+        if key in previous:
+            match[key] = copy.deepcopy(previous[key])
+
+
+def build_change_record(
+    old_primary: str,
+    new_primary: str,
+    recommendation_changed: bool,
+    accepted: bool,
+    support_agents: list[str],
+    max_odds_move: float,
+    max_implied_move: float,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "meaningful": recommendation_changed or max_odds_move >= ODDS_SNAPSHOT_THRESHOLD,
+        "recommendationChanged": recommendation_changed,
+        "accepted": accepted,
+        "oldPrimary": old_primary, "newPrimary": new_primary,
+        "supportCount": len(support_agents), "supportAgents": support_agents,
+        "maxOddsMove": round(max_odds_move, 4), "maxImpliedMove": round(max_implied_move, 4),
+        "oddsThreshold": ODDS_RECOMMENDATION_CHANGE_THRESHOLD,
+        "impliedThreshold": IMPLIED_RECOMMENDATION_CHANGE_THRESHOLD,
+        "requiredCoreSupports": 2,
+        "reason": reason,
+    }
+
+
+def append_tracking_agent(match: dict[str, Any], tracking: dict[str, Any]) -> None:
+    agents = [item for item in copy.deepcopy(match.get("agents") or []) if item.get("name") != "变盘锁定Agent"]
+    change = tracking.get("change") or {}
+    if tracking.get("locked"):
+        signal = f"临场锁定：{((tracking.get('lockedSnapshot') or {}).get('primary') or '--')}"
+        score = 100
+    elif change.get("recommendationChanged") and change.get("accepted"):
+        signal = f"改判：{change.get('oldPrimary')}→{change.get('newPrimary')}"
+        score = min(100, 70 + int(change.get("supportCount") or 0) * 8)
+    elif change.get("recommendationChanged"):
+        signal = f"维持：{change.get('oldPrimary')}"
+        score = 72
+    else:
+        signal = f"稳定：{change.get('newPrimary') or '--'}"
+        score = 86
+    agents.append(agent("变盘锁定Agent", signal, score, str(change.get("reason") or "赔率变化已记录。")))
+    match["agents"] = agents
+
+
+def parse_match_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip().replace("T", " ")
+    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+        try:
+            return datetime.strptime(text[:19], pattern).replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+        except ValueError:
+            continue
+    return None
+
+
+def analysis_time(match: dict[str, Any]) -> str:
+    tracking = match.get("analysisTracking") or {}
+    intelligence = match.get("intelligence") or {}
+    return str(tracking.get("updatedAt") or intelligence.get("fetchedAt") or "")
+
+
+def merge_analysis_timelines(*timelines: Any) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for timeline in timelines:
+        for item in timeline or []:
+            if not isinstance(item, dict):
+                continue
+            signature = (
+                item.get("at"), item.get("stage"), item.get("primary"), item.get("candidatePrimary"),
+                item.get("cover"), json.dumps(item.get("odds") or {}, sort_keys=True, ensure_ascii=False),
+            )
+            if signature in seen:
+                continue
+            seen.add(signature)
+            merged.append(copy.deepcopy(item))
+    return sorted(merged, key=lambda item: str(item.get("at") or ""))[-MAX_ANALYSIS_SNAPSHOTS:]
+
+
 def update_analysis_archive(
     old_archive: list[dict[str, Any]],
     matches: list[dict[str, Any]],
@@ -1564,6 +2072,8 @@ def update_analysis_archive(
     archive = {str(item.get("id")): dict(item) for item in old_archive if item.get("id")}
     for match in matches:
         conclusion = match.get("conclusion") or {}
+        odds = match.get("odds") or {}
+        tracking = match.get("analysisTracking") or {}
         match_id = str(match.get("id"))
         duplicate_id = next(
             (
@@ -1581,6 +2091,11 @@ def update_analysis_archive(
         previous = archive.get(archive_id) or (archive.get(duplicate_id) if duplicate_id else {}) or {}
         if duplicate_id and duplicate_id != archive_id:
             archive.pop(duplicate_id, None)
+        initial_analysis = copy.deepcopy(tracking.get("initial") or previous.get("initialAnalysis"))
+        latest_analysis = copy.deepcopy(tracking.get("latest") or previous.get("latestAnalysis"))
+        locked_analysis = copy.deepcopy(tracking.get("lockedSnapshot") or previous.get("lockedAnalysis"))
+        final_analysis = locked_analysis or latest_analysis or {}
+        timeline = merge_analysis_timelines(previous.get("analysisTimeline"), tracking.get("snapshots"))
         archive[archive_id] = {
             "id": archive_id,
             "date": match.get("date"),
@@ -1588,17 +2103,26 @@ def update_analysis_archive(
             "league": match.get("league"),
             "home": match.get("home"),
             "away": match.get("away"),
-            "predictedPrimary": conclusion.get("primary"),
+            "predictedPrimary": final_analysis.get("primary") or conclusion.get("primary"),
             "marketPrimary": conclusion.get("marketPrimary"),
-            "decisionMode": conclusion.get("decisionMode") or "base",
-            "cover": conclusion.get("cover"),
-            "confidence": conclusion.get("confidence"),
-            "bestScores": conclusion.get("bestScores") or [],
-            "coldScores": conclusion.get("coldScores") or [],
-            "overUnder": conclusion.get("overUnder"),
-            "upsetScore": (match.get("upset") or {}).get("score"),
+            "decisionMode": final_analysis.get("decisionMode") or conclusion.get("decisionMode") or "base",
+            "cover": final_analysis.get("cover") or conclusion.get("cover"),
+            "confidence": final_analysis.get("confidence") or conclusion.get("confidence"),
+            "bestScores": final_analysis.get("bestScores") or conclusion.get("bestScores") or [],
+            "coldScores": final_analysis.get("coldScores") or conclusion.get("coldScores") or [],
+            "overUnder": final_analysis.get("overUnder") or conclusion.get("overUnder"),
+            "upsetScore": final_analysis.get("upsetScore") if final_analysis.get("upsetScore") is not None else (match.get("upset") or {}).get("score"),
             "upsetRoundtable": (match.get("upset") or {}).get("roundtable") or {},
             "customerSummary": conclusion.get("customerSummary") or {},
+            "trackingStatus": tracking.get("status") or previous.get("trackingStatus") or "legacy",
+            "initialAnalysis": initial_analysis,
+            "latestAnalysis": latest_analysis,
+            "lockedAnalysis": locked_analysis,
+            "analysisTimeline": timeline,
+            "oddsInitial": clean_odds(odds.get("initial")) or previous.get("oddsInitial") or {},
+            "oddsLatest": clean_odds(odds.get("current")) or previous.get("oddsLatest") or {},
+            "oddsMovement": odds.get("movementCombo") or previous.get("oddsMovement") or "",
+            "changeReason": (tracking.get("change") or {}).get("reason") or previous.get("changeReason") or "",
             "createdAt": previous.get("createdAt") or now_iso(),
             "updatedAt": now_iso(),
             "finalScore": previous.get("finalScore") or "",
