@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-24T19:54:22+08:00",
+  "updatedAt": "2026-07-25T10:24:22+08:00",
   "matches": [
     {
       "id": "500-history-2025-07-22-周二001",
@@ -60398,6 +60398,32 @@
       "homeOdds": 1.72,
       "drawOdds": 3.65,
       "awayOdds": 4.58
+    },
+    {
+      "id": "500-history-2026-07-24-周五201",
+      "league": "芬超",
+      "round": "周五201",
+      "date": "2026-07-25 00:00",
+      "home": "雅罗",
+      "away": "塞那乔其",
+      "homeScore": 2,
+      "awayScore": 1,
+      "homeOdds": 2.91,
+      "drawOdds": 3.62,
+      "awayOdds": 2.17
+    },
+    {
+      "id": "500-history-2026-07-24-周五202",
+      "league": "瑞典超",
+      "round": "周五202",
+      "date": "2026-07-25 01:00",
+      "home": "瓦斯特拉斯",
+      "away": "奥尔格里特",
+      "homeScore": 2,
+      "awayScore": 0,
+      "homeOdds": 1.55,
+      "drawOdds": 4.26,
+      "awayOdds": 5.03
     }
   ]
 }
