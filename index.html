@@ -330,6 +330,24 @@
     .odds-table th, .odds-table td { padding: 8px 6px; border-bottom: 1px solid var(--line2); text-align: left; }
     .odds-table td { word-break: break-word; }
     .odds-table th { color: var(--muted); font-weight: 500; }
+    .analysis-track { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line2); }
+    .track-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .track-head h4 { margin: 0; font-size: 13px; }
+    .track-status { min-height: 24px; display: inline-flex; align-items: center; padding: 0 8px; border: 1px solid rgba(50,213,255,.34); border-radius: 4px; color: var(--cyan); background: rgba(50,213,255,.07); font-size: 11px; font-weight: 800; }
+    .track-status.held { border-color: rgba(255,200,87,.4); color: var(--amber); background: rgba(255,200,87,.07); }
+    .track-status.locked { border-color: rgba(70,220,157,.42); color: var(--green); background: rgba(70,220,157,.07); }
+    .track-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 0; margin-top: 10px; border-top: 1px solid var(--line2); border-bottom: 1px solid var(--line2); }
+    .track-step { min-width: 0; padding: 10px; border-right: 1px solid var(--line2); }
+    .track-step:last-child { border-right: 0; }
+    .track-step span { display: block; color: var(--muted); font-size: 10px; }
+    .track-step b { display: block; margin-top: 5px; color: #e6f1ff; font-size: 13px; overflow-wrap: anywhere; }
+    .track-step small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+    .track-reason { margin-top: 10px; color: #d8e6f6; font-size: 12px; line-height: 1.65; }
+    .track-timeline { display: grid; gap: 0; margin-top: 9px; }
+    .track-row { display: grid; grid-template-columns: 92px minmax(0,1fr) auto; gap: 8px; align-items: start; padding: 7px 0; border-top: 1px dashed rgba(255,255,255,.08); font-size: 11px; }
+    .track-row time { color: var(--muted); }
+    .track-row b { color: #dcecff; font-size: 11px; }
+    .track-row em { color: var(--muted); font-style: normal; text-align: right; }
 
     .agent-list { display: grid; gap: 8px; }
     .agent-row {
@@ -438,6 +456,7 @@
     .history-row b { display: block; font-size: 13px; }
     .history-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
     .history-result { font-size: 12px; line-height: 1.55; color: #d9e6f5; }
+    .history-track { color: #a9bed3; }
     .history-hit { min-width: 58px; text-align: center; color: var(--muted); font-size: 12px; }
     .history-hit.yes { color: var(--green); }
     .history-hit.no { color: var(--red); }
@@ -469,6 +488,11 @@
       .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .score-grid { grid-template-columns: 1fr; }
       .intel-grid, .history-controls, .history-row { grid-template-columns: 1fr; }
+      .track-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .track-step:nth-child(2) { border-right: 0; }
+      .track-step:nth-child(-n+2) { border-bottom: 1px solid var(--line2); }
+      .track-row { grid-template-columns: 76px minmax(0,1fr); }
+      .track-row em { grid-column: 2; text-align: left; }
       .match-list { max-height: 360px; }
       .license-actions { grid-template-columns: 1fr; }
       .manual-actions { grid-template-columns: 1fr; }
@@ -623,11 +647,25 @@
             <p id="strictReport">--</p>
           </article>
           <article class="report-card">
-            <h3>Interwetten赔率画像</h3>
+            <h3>Interwetten赔率画像 · 变盘追踪</h3>
             <table class="odds-table">
               <thead><tr><th>项目</th><th>当前</th><th>初赔</th><th>信号</th></tr></thead>
               <tbody id="oddsTable"></tbody>
             </table>
+            <div class="analysis-track">
+              <div class="track-head">
+                <h4>研判版本与临场锁定</h4>
+                <span class="track-status" id="trackingStatus">等待快照</span>
+              </div>
+              <div class="track-grid">
+                <div class="track-step"><span>初始研判</span><b id="trackInitial">--</b><small id="trackInitialOdds">--</small></div>
+                <div class="track-step"><span>最新有效研判</span><b id="trackLatest">--</b><small id="trackLatestOdds">--</small></div>
+                <div class="track-step"><span>变盘仲裁</span><b id="trackDecision">--</b><small id="trackSupport">--</small></div>
+                <div class="track-step"><span>临场锁定</span><b id="trackLocked">等待临场</b><small id="trackLockedAt">开赛前自动锁定</small></div>
+              </div>
+              <div class="track-reason" id="trackReason">尚未形成赔率变化记录。</div>
+              <div class="track-timeline" id="trackTimeline"></div>
+            </div>
           </article>
           <article class="report-card">
             <h3>球员状态 · 预计阵容 · 伤停情报</h3>
@@ -1050,14 +1088,19 @@
       const c = match.conclusion || {};
       const a = match.antiDraw || {};
       const o = match.odds || {};
+      const tracking = match.analysisTracking || {};
       const roundtable = match.upset?.roundtable || {};
       const coldDecision = c.decisionMode && c.decisionMode !== "base"
         ? `冷门圆桌已推翻基础第一顺位${c.marketPrimary || "--"}，${roundtable.coreSupports || 0}个核心席支持最终主判${c.primary || "--"}。`
         : `基础第一顺位${c.marketPrimary || c.primary || "--"}保留为最终主线。`;
+      const trackingDecision = tracking.locked
+        ? `临场结论已锁定为${tracking.lockedSnapshot?.primary || c.primary || "--"}，赛后不再用新赔率改写。`
+        : `${tracking.change?.reason || "当前尚未触发有效改判。"}`;
       $("strictReport").textContent =
         `生产状态：${c.action || "--"}。${coldDecision}系统选择：${c.cover || "--"}。` +
         `反防平评分 ${a.score ?? "--"}，结论为${a.verdict || "--"}。` +
         `赔率形态：${o.movementCombo || o.movement || "--"}。` +
+        `变盘仲裁：${trackingDecision}` +
         `比分口径：${(c.bestScores || []).map(item => item.score).join(" / ") || "--"}，${c.overUnder || "--"}。` +
         `${(c.coldScores || []).length ? ` 开放局冷门比分：${c.coldScores.map(item => item.score).join(" / ")}。` : ""}`;
     }
@@ -1116,6 +1159,61 @@
         ["盘口猫腻", match.upset?.trap || "--", o.gapLabel || "--", match.conclusion?.defendCold || "--"]
       ];
       $("oddsTable").innerHTML = rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("");
+      renderAnalysisTracking(match);
+    }
+
+    function renderAnalysisTracking(match) {
+      const tracking = match.analysisTracking || {};
+      const change = tracking.change || {};
+      const initial = tracking.initial || {};
+      const latest = tracking.latest || {};
+      const locked = tracking.lockedSnapshot || {};
+      const candidate = tracking.candidate || {};
+      const statusLabels = {
+        initial: "初始快照", steady: "方向稳定", updated: "研判更新", changed: "有效改判",
+        held: "候选未通过", locked: "临场已锁定", legacy: "历史版本"
+      };
+      const status = tracking.status || (tracking.locked ? "locked" : "legacy");
+      const statusNode = $("trackingStatus");
+      statusNode.textContent = statusLabels[status] || "变盘已记录";
+      statusNode.className = `track-status ${status === "locked" ? "locked" : (status === "held" ? "held" : "")}`;
+
+      $("trackInitial").textContent = initial.primary || match.conclusion?.primary || "--";
+      $("trackInitialOdds").textContent = `${formatDateTime(initial.at || tracking.firstSeenAt)} · ${formatOddsSnapshot(initial.odds || match.odds?.initial)}`;
+      $("trackLatest").textContent = latest.primary || match.conclusion?.primary || "--";
+      $("trackLatestOdds").textContent = `${formatDateTime(latest.at || tracking.updatedAt)} · ${formatOddsSnapshot(latest.odds || match.odds?.current)}`;
+
+      if (change.recommendationChanged) {
+        $("trackDecision").textContent = change.accepted
+          ? `${change.oldPrimary || "--"} → ${change.newPrimary || "--"}`
+          : `候选${change.newPrimary || candidate.candidatePrimary || "--"}未通过`;
+      } else {
+        $("trackDecision").textContent = `维持${latest.primary || match.conclusion?.primary || "--"}`;
+      }
+      const supportNames = Array.isArray(change.supportAgents) ? change.supportAgents.join("、") : "";
+      $("trackSupport").textContent = change.recommendationChanged
+        ? `核心支持 ${change.supportCount || 0}/${change.requiredCoreSupports || 2}${supportNames ? ` · ${supportNames}` : ""}`
+        : `最大SP变化 ${Number(change.maxOddsMove || 0).toFixed(2)} · 主方向稳定`;
+      $("trackLocked").textContent = tracking.locked ? (locked.primary || latest.primary || "已锁定") : "等待临场";
+      $("trackLockedAt").textContent = tracking.locked
+        ? `${formatDateTime(tracking.lockedAt || locked.at)} · ${formatOddsSnapshot(locked.odds)}`
+        : "开赛前90分钟内锁定";
+      $("trackReason").textContent = change.reason || "尚未形成赔率变化记录。";
+
+      const stageLabels = {initial: "初始", latest: "更新", review: "候选复核", changed: "改判", locked: "锁定", "post-lock": "锁定后记录"};
+      const snapshots = Array.isArray(tracking.snapshots) ? tracking.snapshots.slice(-6).reverse() : [];
+      $("trackTimeline").innerHTML = snapshots.length ? snapshots.map(item => {
+        const candidateText = item.candidatePrimary && item.candidatePrimary !== item.primary
+          ? ` · 候选${escapeHtml(item.candidatePrimary)}未通过`
+          : "";
+        return `
+          <div class="track-row">
+            <time>${escapeHtml(formatDateTime(item.at))}</time>
+            <b>${escapeHtml(stageLabels[item.stage] || "快照")} · ${escapeHtml(item.primary || "--")}${candidateText}</b>
+            <em>${escapeHtml(formatOddsSnapshot(item.odds))}</em>
+          </div>
+        `;
+      }).join("") : `<div class="intel-meta">首次自动更新后开始保存研判快照。</div>`;
     }
 
     function renderAgents(agents) {
@@ -1195,6 +1293,14 @@
           predictedPrimary: match.conclusion?.primary || "--", cover: match.conclusion?.cover || "--",
           confidence: match.conclusion?.confidence || 0, bestScores: match.conclusion?.bestScores || [],
           coldScores: match.conclusion?.coldScores || [], overUnder: match.conclusion?.overUnder || "--",
+          trackingStatus: match.analysisTracking?.status || "legacy",
+          initialAnalysis: match.analysisTracking?.initial || null,
+          latestAnalysis: match.analysisTracking?.latest || null,
+          lockedAnalysis: match.analysisTracking?.lockedSnapshot || null,
+          analysisTimeline: match.analysisTracking?.snapshots || [],
+          oddsInitial: match.odds?.initial || {}, oddsLatest: match.odds?.current || {},
+          oddsMovement: match.odds?.movementCombo || match.odds?.movement || "",
+          changeReason: match.analysisTracking?.change?.reason || "",
           finalScore: "", actualOutcome: "", directionHit: null
         }));
       }
@@ -1255,10 +1361,16 @@
         const scores = (item.bestScores || []).map(score => score.score).join(" / ") || "--";
         const cold = (item.coldScores || []).map(score => score.score).join(" / ");
         const decisionLabel = item.decisionMode === "deep-cold" ? "深冷试胆" : (item.decisionMode === "bold-cold" ? "冷门主判" : "基础主线");
+        const initial = item.initialAnalysis || item.analysisTimeline?.[0] || {};
+        const finalAnalysis = item.lockedAnalysis || item.latestAnalysis || {};
+        const versionCount = Array.isArray(item.analysisTimeline) ? item.analysisTimeline.length : 0;
+        const trackingLine = initial.primary || finalAnalysis.primary
+          ? `初始${initial.primary || "--"} → ${item.lockedAnalysis ? "临场锁定" : "最新"}${finalAnalysis.primary || item.predictedPrimary || "--"}${versionCount ? ` · ${versionCount}个快照` : ""}`
+          : "旧版记录 · 暂无变盘快照";
         return `
           <div class="history-row">
             <div><b>${escapeHtml(item.home || "--")} vs ${escapeHtml(item.away || "--")}</b><small>${escapeHtml(item.date || "--")} · ${escapeHtml(item.league || "--")} · ${escapeHtml(item.round || "")} · ${decisionLabel}</small></div>
-            <div class="history-result">预测：${escapeHtml(item.cover || item.predictedPrimary || "--")} · ${escapeHtml(scores)}${cold ? `<br>冷门比分：${escapeHtml(cold)}` : ""}<br>赛果：${escapeHtml(item.finalScore || "待定")} ${escapeHtml(item.actualOutcome || "")}</div>
+            <div class="history-result">预测：${escapeHtml(item.cover || item.predictedPrimary || "--")} · ${escapeHtml(scores)}${cold ? `<br>冷门比分：${escapeHtml(cold)}` : ""}<br><span class="history-track">研判轨迹：${escapeHtml(trackingLine)}${item.oddsMovement ? `<br>赔率：${escapeHtml(item.oddsMovement)}` : ""}</span><br>赛果：${escapeHtml(item.finalScore || "待定")} ${escapeHtml(item.actualOutcome || "")}</div>
             <div class="history-hit ${hitState[0]}">${hitState[1]}<small>信心 ${escapeHtml(item.confidence ?? "--")}</small></div>
           </div>
         `;
@@ -1808,6 +1920,13 @@
 
     function rotr(value, bits) { return (value >>> bits) | (value << (32 - bits)); }
     function formatDate(value) { return value ? String(value).slice(0, 10) : "--"; }
+    function formatDateTime(value) { return value ? String(value).replace("T", " ").slice(0, 16) : "--"; }
+    function formatOddsSnapshot(value) {
+      const odds = value || {};
+      return ["home", "draw", "away"].every(key => odds[key] !== undefined && odds[key] !== null)
+        ? `${odds.home} / ${odds.draw} / ${odds.away}`
+        : "--";
+    }
     function gateShort(value) { return String(value || "--").split("：")[0]; }
     function clamp(value, min, max) { return Math.max(min, Math.min(max, Number(value) || 0)); }
     function escapeHtml(value) {

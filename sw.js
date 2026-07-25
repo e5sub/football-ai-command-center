@@ -1,4 +1,4 @@
-const CACHE_NAME = "football-ai-command-center-v3";
+const CACHE_NAME = "football-ai-command-center-v4";
 const CORE_ASSETS = [
   "./",
   "./index.html",
