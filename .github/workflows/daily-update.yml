@@ -2,7 +2,7 @@ name: Update 500 JC data
 
 on:
   schedule:
-    - cron: "15 0,6,10 * * *"
+    - cron: "15 0,6,10,14,16,18,20 * * *"
   workflow_dispatch:
 
 permissions:
