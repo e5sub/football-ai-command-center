@@ -65,8 +65,7 @@ def main() -> None:
         warnings.append(f"500 最新竞彩更新失败，已保留上一版赛事：{exc}")
 
     new_history: list[dict[str, Any]] = []
-    for days_ago in range(1, max(1, args.history_days) + 1):
-        day_text = (date.today() - timedelta(days=days_ago)).isoformat()
+    for day_text in history_refresh_dates(date.today(), args.history_days):
         try:
             html = fetch_text(HISTORY_URL, {"playid": "2", "d": day_text})
             new_history.extend(parse_history_rows(html, day_text))
@@ -113,6 +112,14 @@ def main() -> None:
             ensure_ascii=False,
         )
     )
+
+
+def history_refresh_dates(reference_date: date, history_days: int) -> list[str]:
+    """Return the refresh window including today's potentially finished matches."""
+    return [
+        (reference_date - timedelta(days=days_ago)).isoformat()
+        for days_ago in range(max(1, history_days))
+    ]
 
 
 def fetch_text(url: str, params: dict[str, str] | None = None) -> str:
@@ -2063,6 +2070,15 @@ def merge_analysis_timelines(*timelines: Any) -> list[dict[str, Any]]:
     return sorted(merged, key=lambda item: str(item.get("at") or ""))[-MAX_ANALYSIS_SNAPSHOTS:]
 
 
+def covered_outcomes(predicted_primary: Any, cover: Any) -> set[str]:
+    """Return only the outcomes explicitly included in the execution recommendation."""
+    outcomes = set(re.findall(r"主胜|平局|客胜", str(cover or "")))
+    primary = str(predicted_primary or "")
+    if primary in OUTCOME_KEYS:
+        outcomes.add(primary)
+    return outcomes
+
+
 def update_analysis_archive(
     old_archive: list[dict[str, Any]],
     matches: list[dict[str, Any]],
@@ -2127,7 +2143,10 @@ def update_analysis_archive(
             "updatedAt": now_iso(),
             "finalScore": previous.get("finalScore") or "",
             "actualOutcome": previous.get("actualOutcome") or "",
+            "primaryHit": previous.get("primaryHit"),
+            "executionHit": previous.get("executionHit", previous.get("directionHit")),
             "directionHit": previous.get("directionHit"),
+            "hitType": previous.get("hitType"),
         }
 
     finished_by_teams: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -2149,10 +2168,9 @@ def update_analysis_archive(
         key = f"{normalize_team(item.get('home'))}|{normalize_team(item.get('away'))}"
         candidates = finished_by_teams.get(key) or []
         if not candidates and item.get("round"):
-            candidates = [
-                row for row in finished_by_round.get(str(item.get("round"))) or []
-                if canonical_league(row.get("league")) == canonical_league(item.get("league"))
-            ]
+            # The official JC round is stable even when 500 renames a team or league.
+            # Date proximity below prevents the same round number from another week matching.
+            candidates = finished_by_round.get(str(item.get("round"))) or []
         result = min(
             candidates,
             key=lambda row: abs((safe_date(str(row.get("date") or "")) - match_date).days),
@@ -2164,7 +2182,12 @@ def update_analysis_archive(
             actual = "主胜" if home_score > away_score else ("客胜" if home_score < away_score else "平局")
             item["finalScore"] = f"{home_score}-{away_score}"
             item["actualOutcome"] = actual
-            item["directionHit"] = item.get("predictedPrimary") == actual
+            primary_hit = item.get("predictedPrimary") == actual
+            execution_hit = actual in covered_outcomes(item.get("predictedPrimary"), item.get("cover"))
+            item["primaryHit"] = primary_hit
+            item["executionHit"] = execution_hit
+            item["directionHit"] = execution_hit
+            item["hitType"] = "primary" if primary_hit else ("secondary" if execution_hit else "miss")
             item["finishedAt"] = result.get("date")
         output.append(item)
     return sorted(output, key=lambda item: str(item.get("date") or ""), reverse=True)
