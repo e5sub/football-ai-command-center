@@ -459,6 +459,7 @@
     .history-track { color: #a9bed3; }
     .history-hit { min-width: 58px; text-align: center; color: var(--muted); font-size: 12px; }
     .history-hit.yes { color: var(--green); }
+    .history-hit.secondary { color: var(--amber); }
     .history-hit.no { color: var(--red); }
     .watermark {
       position: fixed;
@@ -768,8 +769,8 @@
           <input class="input" id="historySearch" placeholder="搜索球队 / 联赛 / 日期">
           <select class="select" id="historyHitFilter">
             <option value="">全部记录</option>
-            <option value="yes">方向命中</option>
-            <option value="no">方向未中</option>
+            <option value="yes">执行命中</option>
+            <option value="no">执行未中</option>
             <option value="pending">等待赛果</option>
           </select>
         </div>
@@ -1301,7 +1302,7 @@
           oddsInitial: match.odds?.initial || {}, oddsLatest: match.odds?.current || {},
           oddsMovement: match.odds?.movementCombo || match.odds?.movement || "",
           changeReason: match.analysisTracking?.change?.reason || "",
-          finalScore: "", actualOutcome: "", directionHit: null
+          finalScore: "", actualOutcome: "", primaryHit: null, executionHit: null, directionHit: null, hitType: ""
         }));
       }
       state.archiveLoaded = true;
@@ -1350,14 +1351,19 @@
       const hitFilter = $("historyHitFilter").value;
       const rows = state.archive.filter(item => {
         const haystack = `${item.date || ""} ${item.league || ""} ${item.round || ""} ${item.home || ""} ${item.away || ""}`.toLowerCase();
-        const hitState = item.directionHit === true ? "yes" : (item.directionHit === false ? "no" : "pending");
+        const executionHit = item.executionHit ?? item.directionHit;
+        const hitState = executionHit === true ? "yes" : (executionHit === false ? "no" : "pending");
         return (!q || haystack.includes(q)) && (!hitFilter || hitState === hitFilter);
       }).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-      const finished = state.archive.filter(item => item.directionHit !== null && item.directionHit !== undefined).length;
-      const hits = state.archive.filter(item => item.directionHit === true).length;
-      $("historyMeta").textContent = `${rows.length}条记录 · 已出赛果${finished}场${finished ? ` · 方向命中${pct(hits / finished)}` : ""}`;
+      const finishedRows = state.archive.filter(item => (item.executionHit ?? item.directionHit) !== null && (item.executionHit ?? item.directionHit) !== undefined);
+      const executionHits = finishedRows.filter(item => (item.executionHit ?? item.directionHit) === true).length;
+      const primaryHits = finishedRows.filter(item => item.primaryHit ?? (item.actualOutcome && item.predictedPrimary === item.actualOutcome)).length;
+      $("historyMeta").textContent = `${rows.length}条记录 · 已出赛果${finishedRows.length}场${finishedRows.length ? ` · 执行口径命中${pct(executionHits / finishedRows.length)} · 主判命中${pct(primaryHits / finishedRows.length)}` : ""}`;
       $("historyList").innerHTML = rows.length ? rows.map(item => {
-        const hitState = item.directionHit === true ? ["yes", "方向命中"] : (item.directionHit === false ? ["no", "方向未中"] : ["", "等待赛果"]);
+        const executionHit = item.executionHit ?? item.directionHit;
+        const primaryHit = item.primaryHit ?? (item.actualOutcome ? item.predictedPrimary === item.actualOutcome : null);
+        const hitType = item.hitType || (primaryHit ? "primary" : (executionHit ? "secondary" : (executionHit === false ? "miss" : "")));
+        const hitState = hitType === "primary" ? ["yes", "主判命中"] : (hitType === "secondary" ? ["secondary", "次选命中"] : (hitType === "miss" ? ["no", "执行未中"] : ["", "等待赛果"]));
         const scores = (item.bestScores || []).map(score => score.score).join(" / ") || "--";
         const cold = (item.coldScores || []).map(score => score.score).join(" / ");
         const decisionLabel = item.decisionMode === "deep-cold" ? "深冷试胆" : (item.decisionMode === "bold-cold" ? "冷门主判" : "基础主线");
