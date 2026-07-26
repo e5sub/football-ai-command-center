@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-26T11:52:02+08:00",
+  "updatedAt": "2026-07-26T14:30:41+08:00",
   "matches": [
     {
       "id": "500-history-2025-07-22-周二001",
@@ -60541,6 +60541,32 @@
       "homeOdds": 1.34,
       "drawOdds": 4.87,
       "awayOdds": 8.31
+    },
+    {
+      "id": "500-history-2026-07-25-周六210",
+      "league": "美职联",
+      "round": "周六210",
+      "date": "2026-07-26 09:30",
+      "home": "圣地亚哥FC",
+      "away": "达拉斯FC",
+      "homeScore": 1,
+      "awayScore": 0,
+      "homeOdds": 2.22,
+      "drawOdds": 3.76,
+      "awayOdds": 2.79
+    },
+    {
+      "id": "500-history-2026-07-25-周六211",
+      "league": "美职联",
+      "round": "周六211",
+      "date": "2026-07-26 10:30",
+      "home": "圣何塞地震",
+      "away": "洛杉矶银河",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 1.96,
+      "drawOdds": 3.87,
+      "awayOdds": 3.31
     }
   ]
 }
