@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-27T05:10:43+08:00",
+  "updatedAt": "2026-07-27T11:59:50+08:00",
   "matches": [
     {
       "id": "500-history-2025-07-22-周二001",
@@ -60684,6 +60684,123 @@
       "homeOdds": 1.67,
       "drawOdds": 4.22,
       "awayOdds": 4.19
+    },
+    {
+      "id": "500-history-2026-07-26-周日210",
+      "league": "芬超",
+      "round": "周日210",
+      "date": "2026-07-26 22:00",
+      "home": "赫尔辛基",
+      "away": "TPS图尔库",
+      "homeScore": 1,
+      "awayScore": 0,
+      "homeOdds": 1.34,
+      "drawOdds": 5.15,
+      "awayOdds": 7.19
+    },
+    {
+      "id": "500-history-2026-07-26-周日211",
+      "league": "瑞典超",
+      "round": "周日211",
+      "date": "2026-07-26 22:30",
+      "home": "哥德堡盖斯",
+      "away": "哈姆斯塔德",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 1.47,
+      "drawOdds": 4.35,
+      "awayOdds": 6.03
+    },
+    {
+      "id": "500-history-2026-07-26-周日212",
+      "league": "瑞典超",
+      "round": "周日212",
+      "date": "2026-07-26 22:30",
+      "home": "马尔默",
+      "away": "埃尔夫斯堡",
+      "homeScore": 1,
+      "awayScore": 2,
+      "homeOdds": 1.98,
+      "drawOdds": 3.58,
+      "awayOdds": 3.44
+    },
+    {
+      "id": "500-history-2026-07-26-周日213",
+      "league": "挪超",
+      "round": "周日213",
+      "date": "2026-07-26 23:00",
+      "home": "萨普斯堡",
+      "away": "汉坎",
+      "homeScore": 1,
+      "awayScore": 0,
+      "homeOdds": 1.65,
+      "drawOdds": 4.04,
+      "awayOdds": 4.49
+    },
+    {
+      "id": "500-history-2026-07-26-周日214",
+      "league": "挪超",
+      "round": "周日214",
+      "date": "2026-07-26 23:00",
+      "home": "KFUM奥斯陆",
+      "away": "莫尔德",
+      "homeScore": 2,
+      "awayScore": 4,
+      "homeOdds": 3.03,
+      "drawOdds": 3.59,
+      "awayOdds": 2.14
+    },
+    {
+      "id": "500-history-2026-07-26-周日215",
+      "league": "挪超",
+      "round": "周日215",
+      "date": "2026-07-26 23:00",
+      "home": "桑德菲杰",
+      "away": "博德闪耀",
+      "homeScore": 0,
+      "awayScore": 3,
+      "homeOdds": 7.12,
+      "drawOdds": 5.36,
+      "awayOdds": 1.34
+    },
+    {
+      "id": "500-history-2026-07-26-周日216",
+      "league": "挪超",
+      "round": "周日216",
+      "date": "2026-07-27 01:15",
+      "home": "奥勒松",
+      "away": "维京",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 5.14,
+      "drawOdds": 4.57,
+      "awayOdds": 1.51
+    },
+    {
+      "id": "500-history-2026-07-26-周日217",
+      "league": "巴甲",
+      "round": "周日217",
+      "date": "2026-07-27 05:30",
+      "home": "弗拉门戈",
+      "away": "圣保罗",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 1.45,
+      "drawOdds": 4.28,
+      "awayOdds": 6.76
+    },
+    {
+      "id": "500-history-2026-07-26-周日218",
+      "league": "巴甲",
+      "round": "周日218",
+      "date": "2026-07-27 05:30",
+      "home": "格雷米奥",
+      "away": "弗鲁米嫩塞",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 3.23,
+      "drawOdds": 3.19,
+      "awayOdds": 2.23
     }
   ]
 }
