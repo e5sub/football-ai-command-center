@@ -23,8 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "matches.json"
 HISTORY_PATH = ROOT / "data" / "jc_history.json"
 ARCHIVE_PATH = ROOT / "data" / "analysis_archive.json"
+FIXTURE_CATALOG_PATH = ROOT / "data" / "fixture_catalog.json"
 CURRENT_URL = "https://trade.500.com/jczq/index.php"
 HISTORY_URL = "https://open.500.com/iframe/kaijiang/jczq.php"
+ALL_FIXTURES_URL = "https://odds.500.com/index_all_{day}.shtml"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36",
     "Referer": "https://www.500.com/",
@@ -55,6 +57,8 @@ def main() -> None:
     seed_profiles = normalize_seed_profiles(old_payload.get("seedLeagueProfiles") or old_payload.get("leagueProfiles") or [])
     old_history = load_json(HISTORY_PATH, {"matches": []}).get("matches") or []
     old_archive = load_json(ARCHIVE_PATH, {"matches": []}).get("matches") or []
+    old_catalog = load_json(FIXTURE_CATALOG_PATH, {"matches": []})
+    today = local_today()
 
     warnings: list[str] = []
     current_rows: list[dict[str, Any]] | None
@@ -65,7 +69,7 @@ def main() -> None:
         warnings.append(f"500 最新竞彩更新失败，已保留上一版赛事：{exc}")
 
     new_history: list[dict[str, Any]] = []
-    for day_text in history_refresh_dates(date.today(), args.history_days):
+    for day_text in history_refresh_dates(today, args.history_days):
         try:
             html = fetch_text(HISTORY_URL, {"playid": "2", "d": day_text})
             new_history.extend(parse_history_rows(html, day_text))
@@ -86,6 +90,23 @@ def main() -> None:
         matches = apply_analysis_tracking(old_payload.get("matches") or [], matches)
         update_status = "success" if current_rows else "success-no-current-matches"
 
+    try:
+        catalog_html = fetch_text(ALL_FIXTURES_URL.format(day=today.isoformat()))
+        catalog_rows = parse_all_fixture_rows(catalog_html)
+        catalog_matches = [
+            build_match(row, profiles, team_profiles, empty_intelligence(row, "全量赛事目录暂不预抓阵容新闻"))
+            for row in catalog_rows
+        ]
+        fixture_catalog = {
+            "updatedAt": now_iso(),
+            "status": "success",
+            "source": "500完整指数赛事目录",
+            "matches": catalog_matches,
+        }
+    except Exception as exc:  # noqa: BLE001
+        fixture_catalog = old_catalog or {"updatedAt": now_iso(), "status": "failed", "matches": []}
+        warnings.append(f"500完整赛事目录更新失败，已保留上一版：{exc}")
+
     archive = update_analysis_archive(old_archive, matches, history, args.history_retention)
 
     payload = {
@@ -98,6 +119,7 @@ def main() -> None:
     write_json(DATA_PATH, payload)
     write_json(HISTORY_PATH, {"updatedAt": now_iso(), "matches": history})
     write_json(ARCHIVE_PATH, {"updatedAt": now_iso(), "matches": archive})
+    write_json(FIXTURE_CATALOG_PATH, fixture_catalog)
     print(
         json.dumps(
             {
@@ -107,6 +129,7 @@ def main() -> None:
                 "leagues": len(profiles),
                 "teams": len(team_profiles),
                 "archive": len(archive),
+                "fixtureCatalog": len(fixture_catalog.get("matches") or []),
                 "warnings": warnings[:5],
             },
             ensure_ascii=False,
@@ -120,6 +143,10 @@ def history_refresh_dates(reference_date: date, history_days: int) -> list[str]:
         (reference_date - timedelta(days=days_ago)).isoformat()
         for days_ago in range(max(1, history_days))
     ]
+
+
+def local_today() -> date:
+    return datetime.now(ZoneInfo("Asia/Shanghai")).date()
 
 
 def fetch_text(url: str, params: dict[str, str] | None = None) -> str:
@@ -222,6 +249,63 @@ def parse_current_rows(html: str) -> list[dict[str, Any]]:
     return rows
 
 
+def parse_all_fixture_rows(html: str) -> list[dict[str, Any]]:
+    odds_match = re.search(r"var\s+ouzhiList\s*=\s*(\{.*?\});\s*var\s+yapanList", html or "", re.I | re.S)
+    if not odds_match:
+        return []
+    odds_by_fixture = json.loads(odds_match.group(1))
+    rows: list[dict[str, Any]] = []
+    pattern = re.compile(r'<tr(?P<attrs>[^>]*\bdate-dtime="[^"]+"[^>]*)>(?P<body>.*?)</tr>', re.I | re.S)
+    for item in pattern.finditer(html or ""):
+        attrs = parse_html_attributes(item.group("attrs"))
+        body = item.group("body")
+        fixture_id = attrs.get("data-fid", "")
+        if not fixture_id:
+            continue
+        round_match = re.search(rf'value="{re.escape(fixture_id)}"\s*/?>\s*(周.\d{{3}})', body)
+        league_match = re.search(r'<td\s+rowspan="2"[^>]*>\s*<a[^>]+title="([^"]+)"', body, re.I | re.S)
+        team_matches = re.findall(r'class="team_link"[^>]+href="[^"]*/team/(\d+)/"[^>]+title="([^"]+)"', body, re.I)
+        if not league_match or len(team_matches) < 2:
+            continue
+        fixture_odds = odds_by_fixture.get(fixture_id) or {}
+        average_pair = fixture_odds.get("0") or next(iter(fixture_odds.values()), None)
+        if not average_pair or len(average_pair) < 2:
+            continue
+        current = [float_or_none(value) for value in average_pair[0][:3]]
+        initial = [float_or_none(value) for value in average_pair[1][:3]]
+        if any(value is None or value <= 1 for value in current):
+            continue
+        if any(value is None or value <= 1 for value in initial):
+            initial = list(current)
+        match_time = attrs.get("date-dtime", "").strip()
+        if match_time.endswith(":00"):
+            match_time = match_time[:-3]
+        rows.append({
+            "id": f"500-all-{fixture_id}",
+            "fixture_id": fixture_id,
+            "home_id": team_matches[0][0],
+            "away_id": team_matches[1][0],
+            "league": canonical_league(league_match.group(1).strip()),
+            "match_time": match_time,
+            "round": round_match.group(1) if round_match else f"全量{fixture_id[-4:]}",
+            "home": html_lib.unescape(team_matches[0][1]).strip(),
+            "away": html_lib.unescape(team_matches[1][1]).strip(),
+            "home_rank": None,
+            "away_rank": None,
+            "handicap": None,
+            "home_odds": current[0],
+            "draw_odds": current[1],
+            "away_odds": current[2],
+            "initial_home_odds": initial[0],
+            "initial_draw_odds": initial[1],
+            "initial_away_odds": initial[2],
+            "source_type": "500-all",
+            "source_label": "500完整指数",
+            "detail_url": f"https://odds.500.com/fenxi/shuju-{fixture_id}.shtml",
+        })
+    return rows
+
+
 def parse_html_attributes(value: str) -> dict[str, str]:
     return {key.lower(): html_lib.unescape(raw) for key, raw in re.findall(r'([\w-]+)="([^"]*)"', value or "")}
 
@@ -268,7 +352,7 @@ def parse_history_rows(html: str, business_date: str) -> list[dict[str, Any]]:
 def merge_history(old: list[dict[str, Any]], new: list[dict[str, Any]], retention_days: int) -> list[dict[str, Any]]:
     merged = {str(row.get("id")): row for row in old if row.get("id")}
     merged.update({str(row.get("id")): row for row in new if row.get("id")})
-    cutoff = date.today() - timedelta(days=max(30, retention_days))
+    cutoff = local_today() - timedelta(days=max(30, retention_days))
     output = []
     for row in merged.values():
         try:
@@ -758,6 +842,8 @@ def build_match(
     intelligence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     league = str(row.get("league") or "竞彩足球")
+    source_type = str(row.get("source_type") or "500-jc")
+    source_label = str(row.get("source_label") or "500竞彩")
     profile = profiles.get(league) or average_profile(profiles)
     intelligence = intelligence or empty_intelligence(row)
     market = implied_probabilities(row["home_odds"], row["draw_odds"], row["away_odds"])
@@ -834,14 +920,25 @@ def build_match(
             confidence = min(confidence - 4, 82)
         elif draw_defense["cover"]:
             confidence = min(confidence - 2, 86)
+    if team_weight <= 0:
+        confidence = max(42, confidence - 8)
+    elif team_weight < 0.06:
+        confidence = max(42, confidence - 3)
+    if source_type == "500-all" and str(intelligence.get("status") or "") not in {"success", "updated"}:
+        confidence = min(confidence, 68)
     protection_direction = OUTCOME_LABELS[protection_key]
     cover = primary if protection_key == primary_key else f"{primary}，防{protection_direction}"
+    strong_selection = (
+        not bold_pick and confidence >= 76 and cold_risk < 0.55 and base_gap >= 0.08 and team_weight >= 0.04
+    )
+    cautious_selection = not bold_pick and confidence >= 67 and cold_risk < 0.64 and base_gap >= 0.04
+    recommendation_tier = "重点" if strong_selection else ("谨慎" if cautious_selection else ("观点" if bold_pick else "观察"))
     if bold_pick:
         action = f"{'深冷' if upset_roundtable.get('level') == 'deep' else '冷门'}主判：{primary}"
         value_gate = "观点模式：接受高波动，冷门席拥有最终表决权"
     else:
-        action = "重点候选" if confidence >= 72 and cold_risk < 0.60 else (f"防冷优先：{cover}" if cold_risk >= 0.66 else "观察复核")
-        value_gate = "通过：进入候选观察池" if action == "重点候选" else ("高风险：只做防冷复盘" if cold_risk >= 0.66 else "观察：等待临场确认")
+        action = "重点候选" if strong_selection else ("谨慎候选" if cautious_selection else (f"防冷优先：{cover}" if cold_risk >= 0.66 else "观察复核"))
+        value_gate = "通过：进入重点执行池" if strong_selection else ("谨慎：只进入次级候选" if cautious_selection else ("高风险：只做防冷复盘" if cold_risk >= 0.66 else "观察：等待临场确认"))
     if bold_pick:
         defend = f"主动冷门立场：{primary}；原热门仅作反向防守"
     elif protection_key == "draw" and primary_key != "draw":
@@ -852,7 +949,7 @@ def build_match(
     if bold_pick:
         final = f"本地冷门圆桌主动推翻赔率第一顺位，主判改为{primary}，观点信心{confidence}/100；执行口径为{cover}；"
     else:
-        final = f"500竞彩赔率、联赛画像与球队样本综合倾向为{primary}，信心指数{confidence}/100；"
+        final = f"{source_label}赔率、联赛画像与球队样本综合倾向为{primary}，信心指数{confidence}/100；"
     if not bold_pick and protection_key == "draw" and primary_key != "draw":
         final += f"平局防守等级为{draw_defense['label']}，执行口径为{cover}；"
     elif not bold_pick and cold_risk >= 0.52:
@@ -866,22 +963,29 @@ def build_match(
     )
 
     odds = {"home": row["home_odds"], "draw": row["draw_odds"], "away": row["away_odds"]}
+    initial_odds = {
+        "home": float(row.get("initial_home_odds") or odds["home"]),
+        "draw": float(row.get("initial_draw_odds") or odds["draw"]),
+        "away": float(row.get("initial_away_odds") or odds["away"]),
+    }
+    odds_movement = format_odds_movement(initial_odds, odds)
     agents = build_agents(
         row, profile, probs, cold_risk, risk_level, anti_draw_value, anti_draw_verdict, scores, cold_scores,
         confidence, cover, intelligence, draw_defense, upset_roundtable, primary,
     )
     return {
         "id": row["id"], "date": row["match_time"], "round": row["round"], "league": league,
-        "home": row["home"], "away": row["away"], "sourceType": "500-jc",
+        "home": row["home"], "away": row["away"], "sourceType": source_type,
         "fixtureId": row.get("fixture_id"), "homeTeamId": row.get("home_id"), "awayTeamId": row.get("away_id"),
+        "detailUrl": row.get("detail_url"),
         "homeRank": row.get("home_rank"), "awayRank": row.get("away_rank"), "handicap": row.get("handicap"),
         "odds": {
-            "current": odds, "initial": odds, "shape": f"{row['home_odds']}/{row['draw_odds']}/{row['away_odds']}",
-            "movement": "500竞彩即时SP", "movementCombo": "500最新竞彩赔率 + 历史联赛校准",
+            "current": odds, "initial": initial_odds, "shape": f"{row['home_odds']}/{row['draw_odds']}/{row['away_odds']}",
+            "movement": odds_movement, "movementCombo": f"{source_label}：{odds_movement} + 历史联赛校准",
             "favorite": OUTCOME_LABELS[min(odds, key=odds.get)], "favoriteOdds": favorite_odds,
             "favoriteChange": "等待临场变化", "gap": abs(row["home_odds"] - row["away_odds"]),
             "gapLabel": "均势盘" if abs(row["home_odds"] - row["away_odds"]) <= 0.5 else "强弱分层",
-            "mode": "500竞彩即时盘", "dropSide": "待临场", "dropBucket": "即时快照",
+            "mode": f"{source_label}即时盘", "dropSide": "待临场", "dropBucket": "即时快照",
         },
         "probabilities": probs, "leagueProfile": profile,
         "modelBlend": {
@@ -890,7 +994,7 @@ def build_match(
         },
         "intelligence": intelligence,
         "intelligenceAdjustment": intelligence_adjustment,
-        "grid": {"signal": "500 SP基线", "roi": None, "sample": profile.get("sample"), "bucket": "JCToday/Live"},
+        "grid": {"signal": f"{source_label}基线", "roi": None, "sample": profile.get("sample"), "bucket": "JCToday/Live" if source_type == "500-jc" else "500All/Live"},
         "upset": {
             "score": cold_risk, "level": risk_level, "direction": primary if bold_pick else upset_direction,
             "selectedAsPrimary": bold_pick, "counterDirection": upset_direction if bold_pick else OUTCOME_LABELS[base_primary_key],
@@ -912,6 +1016,7 @@ def build_match(
         },
         "conclusion": {
             "action": action, "primary": primary, "cover": cover, "confidence": confidence, "valueGate": value_gate,
+            "recommendationTier": recommendation_tier, "portfolioEligible": strong_selection,
             "decisionMode": "deep-cold" if upset_roundtable.get("level") == "deep" else ("bold-cold" if bold_pick else "base"),
             "marketPrimary": OUTCOME_LABELS[base_primary_key],
             "bestScores": scores, "coldScores": cold_scores, "overUnder": over_under, "openGame": open_game,
@@ -933,8 +1038,9 @@ def build_agents(row: dict[str, Any], profile: dict[str, Any], probs: dict[str, 
     score_signal = " / ".join(item["score"] for item in scores)
     if cold_scores:
         score_signal += "；冷门 " + " / ".join(item["score"] for item in cold_scores)
+    source_label = str(row.get("source_label") or "500竞彩")
     return [
-        agent("数据底座Agent", "500实时校验", 92, f"已读取500竞彩编号{row['round']}，主平客SP完整。"),
+        agent("数据底座Agent", f"{source_label}校验", 92, f"已读取{source_label}编号{row['round']}，主平客欧指完整。"),
         agent("近期状态Agent", "球队近一年画像", max(48, confidence - 5), f"主客排名{row.get('home_rank') or '--'} / {row.get('away_rank') or '--'}；历史胜平负与进球均值已经进入概率层。"),
         agent("阵容伤停Agent", intelligence.get("lineupStatus") or "阵容待定", round(100 - max(float(home_info.get('impactScore') or 0), float(away_info.get('impactScore') or 0)) * 100), f"主队：{home_info.get('summary') or '暂无'}；客队：{away_info.get('summary') or '暂无'}。阵容为预计状态，临场名单公布后需复核。"),
         agent("实时新闻Agent", intelligence.get("newsStatus") or "新闻待补充", 78 if news else 48, "；".join(item.get("title", "") for item in news[:2]) or "近21天未检索到可验证的阵容新闻，不编造球员消息。"),
@@ -2124,6 +2230,8 @@ def update_analysis_archive(
             "decisionMode": final_analysis.get("decisionMode") or conclusion.get("decisionMode") or "base",
             "cover": final_analysis.get("cover") or conclusion.get("cover"),
             "confidence": final_analysis.get("confidence") or conclusion.get("confidence"),
+            "recommendationTier": final_analysis.get("recommendationTier") or conclusion.get("recommendationTier") or previous.get("recommendationTier") or "",
+            "portfolioEligible": bool(final_analysis.get("portfolioEligible") if final_analysis.get("portfolioEligible") is not None else conclusion.get("portfolioEligible", previous.get("portfolioEligible", False))),
             "bestScores": final_analysis.get("bestScores") or conclusion.get("bestScores") or [],
             "coldScores": final_analysis.get("coldScores") or conclusion.get("coldScores") or [],
             "overUnder": final_analysis.get("overUnder") or conclusion.get("overUnder"),
@@ -2156,7 +2264,7 @@ def update_analysis_archive(
         finished_by_teams[key].append(row)
         if row.get("round"):
             finished_by_round[str(row.get("round"))].append(row)
-    cutoff = date.today() - timedelta(days=max(30, retention_days))
+    cutoff = local_today() - timedelta(days=max(30, retention_days))
     output: list[dict[str, Any]] = []
     for item in archive.values():
         try:
