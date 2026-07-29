@@ -2,7 +2,7 @@
   "meta": {
     "product": "AI足球赛事研判指挥舱 HTML授权版",
     "modelName": "Local AI 5.5",
-    "generatedAt": "2026-07-30T01:36:11+08:00",
+    "generatedAt": "2026-07-30T03:40:58+08:00",
     "source": "500彩票网竞彩日常更新 + Interwetten五年历史画像",
     "matchCount": 4,
     "baseHistorySample": 21138,
@@ -14,7 +14,7 @@
       "status": "success",
       "historyRows": 5062,
       "warnings": [
-        "4场实时情报使用保留或降级数据：米拉索尔vs里莫、维多利亚vs帕梅拉斯、巴西国际vs弗拉门戈、弗鲁米嫩vs巴伊亚",
+        "4场实时情报使用保留或降级数据：米拉索尔vs里莫、巴西国际vs弗拉门戈、维多利亚vs帕梅拉斯、弗鲁米嫩vs巴伊亚",
         "500完整赛事目录更新失败，已保留上一版：<urlopen error [Errno 111] Connection refused>"
       ]
     },
@@ -14638,7 +14638,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-07-29T11:35:33+08:00",
-        "updatedAt": "2026-07-30T01:36:11+08:00",
+        "updatedAt": "2026-07-30T03:40:58+08:00",
         "initialOdds": {
           "home": 1.55,
           "draw": 3.65,
@@ -14676,7 +14676,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-07-30T01:36:11+08:00",
+          "at": "2026-07-30T03:40:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 1.5,
@@ -15153,7 +15153,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-07-29T11:35:33+08:00",
-        "updatedAt": "2026-07-30T01:36:11+08:00",
+        "updatedAt": "2026-07-30T03:40:58+08:00",
         "initialOdds": {
           "home": 3.7,
           "draw": 3.27,
@@ -15191,7 +15191,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-07-30T01:36:11+08:00",
+          "at": "2026-07-30T03:40:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 4.32,
@@ -15665,7 +15665,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-07-29T11:35:33+08:00",
-        "updatedAt": "2026-07-30T01:36:11+08:00",
+        "updatedAt": "2026-07-30T03:40:58+08:00",
         "initialOdds": {
           "home": 1.63,
           "draw": 3.5,
@@ -15703,7 +15703,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-07-30T01:36:11+08:00",
+          "at": "2026-07-30T03:40:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 1.63,
@@ -16145,15 +16145,15 @@
         {
           "name": "变盘锁定Agent",
           "status": "已执行",
-          "signal": "改判：平局→客胜",
+          "signal": "稳定：客胜",
           "score": 86,
-          "view": "最大SP变化0.58、归一化概率变化4.4%，并获2席独立核心Agent支持，主判由平局改为客胜。"
+          "view": "最新赔率复核后仍维持客胜，方向未发生改判。"
         }
       ],
       "analysisTracking": {
-        "status": "changed",
+        "status": "steady",
         "firstSeenAt": "2026-07-29T11:35:33+08:00",
-        "updatedAt": "2026-07-30T01:36:11+08:00",
+        "updatedAt": "2026-07-30T03:40:58+08:00",
         "initialOdds": {
           "home": 3.72,
           "draw": 3.15,
@@ -16191,7 +16191,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-07-30T01:36:11+08:00",
+          "at": "2026-07-30T03:40:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 4.3,
@@ -16219,7 +16219,7 @@
           "overUnder": "小2.5球倾向",
           "upsetScore": 0.5458362967172651,
           "accepted": true,
-          "reason": "最大SP变化0.58、归一化概率变化4.4%，并获2席独立核心Agent支持，主判由平局改为客胜。"
+          "reason": "最新赔率复核后仍维持客胜，方向未发生改判。"
         },
         "locked": false,
         "lockedAt": "",
@@ -16234,22 +16234,19 @@
           }
         },
         "change": {
-          "meaningful": true,
-          "recommendationChanged": true,
+          "meaningful": false,
+          "recommendationChanged": false,
           "accepted": true,
-          "oldPrimary": "平局",
+          "oldPrimary": "客胜",
           "newPrimary": "客胜",
-          "supportCount": 2,
-          "supportAgents": [
-            "概率模型Agent",
-            "比分结构Agent"
-          ],
-          "maxOddsMove": 0.58,
-          "maxImpliedMove": 0.0438,
+          "supportCount": 0,
+          "supportAgents": [],
+          "maxOddsMove": 0.0,
+          "maxImpliedMove": 0.0,
           "oddsThreshold": 0.1,
           "impliedThreshold": 0.025,
           "requiredCoreSupports": 2,
-          "reason": "最大SP变化0.58、归一化概率变化4.4%，并获2席独立核心Agent支持，主判由平局改为客胜。"
+          "reason": "最新赔率复核后仍维持客胜，方向未发生改判。"
         },
         "snapshots": [
           {
