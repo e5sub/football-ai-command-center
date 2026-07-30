@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-30T11:25:11+08:00",
+  "updatedAt": "2026-07-30T16:47:09+08:00",
   "matches": [
     {
       "id": "500-history-2025-07-22-周二001",
@@ -60905,6 +60905,32 @@
       "homeOdds": 3.47,
       "drawOdds": 3.37,
       "awayOdds": 2.05
+    },
+    {
+      "id": "500-history-2026-07-29-周三005",
+      "league": "巴甲",
+      "round": "周三005",
+      "date": "2026-07-30 08:30",
+      "home": "弗鲁米嫩塞",
+      "away": "巴伊亚",
+      "homeScore": 0,
+      "awayScore": 0,
+      "homeOdds": 1.69,
+      "drawOdds": 3.66,
+      "awayOdds": 4.8
+    },
+    {
+      "id": "500-history-2026-07-29-周三006",
+      "league": "巴甲",
+      "round": "周三006",
+      "date": "2026-07-30 08:30",
+      "home": "维多利亚",
+      "away": "帕尔梅拉斯",
+      "homeScore": 0,
+      "awayScore": 4,
+      "homeOdds": 3.96,
+      "drawOdds": 3.11,
+      "awayOdds": 2.01
     }
   ]
 }
