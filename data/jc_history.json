@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-31T05:21:18+08:00",
+  "updatedAt": "2026-07-31T11:48:10+08:00",
   "matches": [
     {
       "id": "500-history-2025-07-22-周二001",
@@ -60931,6 +60931,84 @@
       "homeOdds": 3.96,
       "drawOdds": 3.11,
       "awayOdds": 2.01
+    },
+    {
+      "id": "500-history-2026-07-30-周四001",
+      "league": "欧罗巴",
+      "round": "周四001",
+      "date": "2026-07-31 01:00",
+      "home": "中日德兰",
+      "away": "贝西克塔斯",
+      "homeScore": 0,
+      "awayScore": 2,
+      "homeOdds": 2.0,
+      "drawOdds": 3.62,
+      "awayOdds": 3.29
+    },
+    {
+      "id": "500-history-2026-07-30-周四002",
+      "league": "欧罗巴",
+      "round": "周四002",
+      "date": "2026-07-31 01:00",
+      "home": "帕福斯FC",
+      "away": "哈伊杜克",
+      "homeScore": 2,
+      "awayScore": 0,
+      "homeOdds": 1.77,
+      "drawOdds": 3.59,
+      "awayOdds": 4.18
+    },
+    {
+      "id": "500-history-2026-07-30-周四003",
+      "league": "欧罗巴",
+      "round": "周四003",
+      "date": "2026-07-31 02:30",
+      "home": "安德莱赫特",
+      "away": "哈马比",
+      "homeScore": 3,
+      "awayScore": 1,
+      "homeOdds": 2.31,
+      "drawOdds": 3.32,
+      "awayOdds": 2.89
+    },
+    {
+      "id": "500-history-2026-07-30-周四004",
+      "league": "欧罗巴",
+      "round": "周四004",
+      "date": "2026-07-31 02:30",
+      "home": "费伦茨瓦罗斯",
+      "away": "特温特",
+      "homeScore": 2,
+      "awayScore": 2,
+      "homeOdds": 2.86,
+      "drawOdds": 3.58,
+      "awayOdds": 2.2
+    },
+    {
+      "id": "500-history-2026-07-30-周四005",
+      "league": "欧罗巴",
+      "round": "周四005",
+      "date": "2026-07-31 03:00",
+      "home": "本菲卡",
+      "away": "圣加仑",
+      "homeScore": 5,
+      "awayScore": 0,
+      "homeOdds": 1.13,
+      "drawOdds": 8.04,
+      "awayOdds": 15.6
+    },
+    {
+      "id": "500-history-2026-07-30-周四006",
+      "league": "巴甲",
+      "round": "周四006",
+      "date": "2026-07-31 06:30",
+      "home": "科林蒂安",
+      "away": "巴拉纳竞技",
+      "homeScore": 0,
+      "awayScore": 0,
+      "homeOdds": 2.22,
+      "drawOdds": 2.97,
+      "awayOdds": 3.53
     }
   ]
 }
