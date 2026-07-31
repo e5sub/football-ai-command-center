@@ -25,9 +25,8 @@ GitHub Actions 在北京时间 08:15、14:15、18:15、22:15、00:15、02:15、0
 
 推荐分为“重点、谨慎、观察、观点”四层。重点层要求概率优势、冷门压力、球队画像覆盖和信心同时过线；历史页单独展示重点执行命中率。样本不足、只有赔率没有球队画像、或手动赛事未找到正式数据时会自动降级，避免所有比赛都被当成同等强度的推荐。
 
-主访问地址：`https://yh650.github.io/football-ai-command-center/`
+主访问地址：`https://football.071717.xyz`
 
-备用访问地址：`https://raw.githack.com/yh650/football-ai-command-center/main/index.html`
 
 ## 使用范围
 
