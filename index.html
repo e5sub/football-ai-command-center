@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>AI足球赛事研判指挥舱 HTML授权版</title>
+  <title>AI足球赛事研判指挥舱本地版</title>
   <style>
     :root {
       --bg: #070a0f;
@@ -524,12 +524,12 @@
         <div class="brand-mark">AI</div>
         <div>
           <h1>AI足球赛事研判指挥舱</h1>
-          <p>Local AI 5.5 | 多Agent圆桌 | Interwetten冷门防线 | 授权码激活</p>
+          <p>Local AI 5.5 | 多Agent圆桌 | Interwetten冷门防线 | 本地免授权版</p>
         </div>
       </div>
       <div class="badges">
         <button class="badge badge-button" id="historyBtn" type="button"><span class="icon">↺</span>历史回看</button>
-        <span class="badge"><span class="dot" id="authDot"></span><span id="authText">授权校验中</span></span>
+        <span class="badge"><span class="dot"></span><span>本地版</span></span>
         <span class="badge"><span class="dot" id="updateDot"></span><span id="updateText">500数据检查中</span></span>
         <span class="badge">历史样本 <b class="mono" id="historySample">--</b></span>
         <span class="badge">赛事 <b class="mono" id="matchCount">--</b></span>
@@ -725,27 +725,6 @@
     <div class="footer" id="complianceText">仅提供体育数据分析、赛前研究与内容创作参考；不涉及赌博，不提供下注服务，不承诺结果。</div>
   </div>
 
-  <div class="license-layer hidden" id="licenseLayer">
-    <section class="license-box">
-      <header>
-        <h2>授权码激活</h2>
-        <p>本页面为本地静态 HTML 授权版。把设备码发给卖家，输入授权码后会在本浏览器保存激活状态。</p>
-      </header>
-      <div class="license-body">
-        <div>
-          <div class="panel-sub">当前设备码</div>
-          <div class="code-box mono" id="deviceCode">生成中</div>
-        </div>
-        <div class="license-actions">
-          <input class="input mono" id="licenseInput" placeholder="输入授权码，例如 FCL-30D-XXXX-...">
-          <button class="btn primary" id="activateBtn">激活</button>
-          <button class="btn" id="demoBtn">演示模式</button>
-        </div>
-        <div class="message" id="licenseMessage"></div>
-        <button class="btn" id="copyDeviceBtn">复制设备码</button>
-      </div>
-    </section>
-  </div>
   <div class="license-layer hidden" id="manualLayer">
     <section class="license-box">
       <header>
@@ -791,12 +770,8 @@
       </div>
     </section>
   </div>
-  <div class="watermark hidden" id="demoWatermark">演示模式</div>
-
   <script>
-    const PRODUCT_NAME = "AI足球赛事研判指挥舱 HTML授权版";
-    const SECRET = "football-ai-html-command-center-license-2026-v1";
-    const STORAGE_KEY = "football_ai_html_license_v1";
+    const PRODUCT_NAME = "AI足球赛事研判指挥舱本地版";
     const MANUAL_STORAGE_KEY = "football_ai_manual_matches_v1";
     const FIXTURE_CATALOG_CACHE_KEY = "football_ai_fixture_catalog_v1";
     const FALLBACK_DATA = {
@@ -850,7 +825,7 @@
 
     const DATA_CACHE_KEY = "football_ai_remote_data_cache_v3";
     const ARCHIVE_CACHE_KEY = "football_ai_archive_cache_v2";
-    const state = { data: FALLBACK_DATA, matches: [], manualMatches: [], fixtureCatalog: null, catalogPromise: null, activeId: "", authorized: false, demo: false, deviceCode: "", archive: [], archiveLoaded: false };
+    const state = { data: FALLBACK_DATA, matches: [], manualMatches: [], fixtureCatalog: null, catalogPromise: null, activeId: "", archive: [], archiveLoaded: false };
 
     const $ = (id) => document.getElementById(id);
     const pct = (value) => `${Math.round((Number(value) || 0) * 1000) / 10}%`;
@@ -862,20 +837,7 @@
     async function init() {
       bindEvents();
       registerOfflineSupport();
-      state.deviceCode = await getDeviceCode();
-      $("deviceCode").textContent = state.deviceCode;
-      const forcedDemo = new URLSearchParams(location.search).get("demo") === "1";
-      const auth = forcedDemo ? { ok: false, demo: true, message: "演示模式" } : await readActivation();
-      state.authorized = auth.ok;
-      state.demo = Boolean(auth.demo);
-      renderAuth(auth);
-      if (!auth.ok && !auth.demo) $("licenseLayer").classList.remove("hidden");
       await loadData();
-      if (state.demo) {
-        state.data = FALLBACK_DATA;
-        state.matches = FALLBACK_DATA.matches;
-        state.activeId = String(state.matches[0]?.id || "");
-      }
       renderAll();
     }
 
@@ -892,12 +854,6 @@
       $("manualCancelBtn").addEventListener("click", closeManualLayer);
       $("manualForm").addEventListener("submit", createManualMatch);
       $("deleteManualBtn").addEventListener("click", deleteActiveManualMatch);
-      $("activateBtn").addEventListener("click", activate);
-      $("demoBtn").addEventListener("click", enterDemo);
-      $("copyDeviceBtn").addEventListener("click", async () => {
-        const ok = await copyText(state.deviceCode);
-        $("licenseMessage").textContent = ok ? "设备码已复制。" : "复制失败，请手动复制设备码。";
-      });
     }
 
     async function loadData() {
@@ -912,14 +868,12 @@
         state.data.meta = {...(state.data.meta || {}), dailyUpdate: {...(state.data.meta?.dailyUpdate || {}), status: cached ? "offline-cache" : "offline-no-cache"}};
       }
       state.matches = Array.isArray(state.data.matches) ? state.data.matches : [];
-      if (!state.demo) {
-        state.manualMatches = readManualMatches();
-        const remoteMatches = [...state.matches];
-        const reconciled = reconcileManualMatches(state.manualMatches, remoteMatches);
-        state.manualMatches = reconciled.manualMatches;
-        if (reconciled.changed) saveManualMatches();
-        state.matches = [...state.manualMatches, ...remoteMatches];
-      }
+      state.manualMatches = readManualMatches();
+      const remoteMatches = [...state.matches];
+      const reconciled = reconcileManualMatches(state.manualMatches, remoteMatches);
+      state.manualMatches = reconciled.manualMatches;
+      if (reconciled.changed) saveManualMatches();
+      state.matches = [...state.manualMatches, ...remoteMatches];
       if (!state.activeId && state.matches[0]) state.activeId = String(state.matches[0].id);
       hydrateFallbackAgents();
     }
@@ -1975,106 +1929,6 @@
       let factorial = 1;
       for (let i = 2; i <= k; i++) factorial *= i;
       return Math.exp(-lambda) * Math.pow(lambda, k) / factorial;
-    }
-
-    async function activate() {
-      const code = $("licenseInput").value.trim();
-      const result = await validateLicense(code, state.deviceCode);
-      if (!result.ok) {
-        $("licenseMessage").textContent = result.message;
-        return;
-      }
-      const activatedAt = new Date();
-      const expiresAt = result.days ? new Date(activatedAt.getTime() + result.days * 86400000).toISOString() : "";
-      const payload = { license: result.normalized, machineCode: state.deviceCode, activatedAt: activatedAt.toISOString(), expiresAt, days: result.days || null };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      state.authorized = true;
-      state.demo = false;
-      renderAuth({ ok: true, message: result.days ? `${result.days}天授权` : "永久授权" });
-      $("licenseLayer").classList.add("hidden");
-    }
-
-    function enterDemo() {
-      state.demo = true;
-      state.data = FALLBACK_DATA;
-      state.matches = FALLBACK_DATA.matches;
-      state.activeId = String(state.matches[0]?.id || "");
-      renderAuth({ ok: false, demo: true, message: "演示模式" });
-      $("licenseLayer").classList.add("hidden");
-      renderAll();
-    }
-
-    async function readActivation() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { ok: false, message: "未激活" };
-      try {
-        const payload = JSON.parse(raw);
-        if (payload.machineCode !== state.deviceCode) return { ok: false, message: "设备码变化，需要重新激活" };
-        const result = await validateLicense(payload.license, state.deviceCode);
-        if (!result.ok) return result;
-        if (payload.expiresAt && new Date() >= new Date(payload.expiresAt)) return { ok: false, message: "授权已到期" };
-        return { ok: true, message: payload.expiresAt ? `有效至 ${formatDate(payload.expiresAt)}` : "永久授权" };
-      } catch (error) {
-        return { ok: false, message: "激活信息损坏" };
-      }
-    }
-
-    function renderAuth(auth) {
-      $("authText").textContent = auth.ok ? auth.message : (auth.demo ? "演示模式" : "未激活");
-      $("authDot").classList.toggle("warn", !auth.ok);
-      $("demoWatermark").classList.toggle("hidden", !auth.demo);
-    }
-
-    async function validateLicense(value, machineCode) {
-      const info = parseLicense(value);
-      if (!info.normalized) return { ok: false, message: "授权码格式不正确。" };
-      const expected = await generateLicense(machineCode, info.days);
-      if (expected !== info.normalized) return { ok: false, message: "授权码不匹配，请确认设备码和授权期限。" };
-      return { ok: true, normalized: info.normalized, days: info.days };
-    }
-
-    function parseLicense(value) {
-      let cleaned = String(value || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-      if (cleaned.startsWith("FCL")) cleaned = cleaned.slice(3);
-      const timed = cleaned.match(/^(\d{1,4})D([A-F0-9]{28})$/);
-      if (timed) {
-        const days = Number(timed[1]);
-        const body = timed[2];
-        return { days, normalized: `FCL-${days}D-${chunk(body)}` };
-      }
-      if (/^[A-F0-9]{28}$/.test(cleaned)) return { days: null, normalized: `FCL-${chunk(cleaned)}` };
-      return { days: null, normalized: "" };
-    }
-
-    async function generateLicense(machineCode, days) {
-      const normalized = normalizeMachine(machineCode);
-      const payload = days ? `${PRODUCT_NAME}|timed|${days}|${normalized}` : `${PRODUCT_NAME}|permanent|${normalized}`;
-      const digest = hmacSha256Hex(SECRET, payload).toUpperCase().slice(0, 28);
-      return days ? `FCL-${days}D-${chunk(digest)}` : `FCL-${chunk(digest)}`;
-    }
-
-    async function getDeviceCode() {
-      const raw = [
-        navigator.userAgent,
-        navigator.language,
-        screen.width,
-        screen.height,
-        screen.colorDepth,
-        Intl.DateTimeFormat().resolvedOptions().timeZone || ""
-      ].join("|");
-      const digest = sha256Hex(utf8Bytes(raw)).toUpperCase().slice(0, 20);
-      return `FAI-${chunk(digest, 4)}`;
-    }
-
-    function normalizeMachine(value) {
-      let cleaned = String(value || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-      if (cleaned.startsWith("FAI")) cleaned = cleaned.slice(3);
-      const body = cleaned.slice(0, 20);
-      return body.length === 20 ? `FAI-${chunk(body, 4)}` : "";
-    }
-
-    function chunk(value, size = 4) {
-      return String(value).match(new RegExp(`.{1,${size}}`, "g")).join("-");
     }
 
     function hmacSha256Hex(key, message) {
