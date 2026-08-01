@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-01T09:49:50+08:00",
+  "updatedAt": "2026-08-01T11:49:32+08:00",
   "matches": [
     {
       "id": "500-history-2025-07-22-周二001",
@@ -61035,6 +61035,19 @@
       "homeOdds": 1.2,
       "drawOdds": 6.87,
       "awayOdds": 10.35
+    },
+    {
+      "id": "500-history-2026-07-31-周五003",
+      "league": "美职联",
+      "round": "周五003",
+      "date": "2026-08-01 07:30",
+      "home": "纽约城",
+      "away": "多伦多FC",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 1.68,
+      "drawOdds": 3.97,
+      "awayOdds": 4.48
     }
   ]
 }
