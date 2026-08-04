@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-04T05:21:57+08:00",
+  "updatedAt": "2026-08-04T11:36:32+08:00",
   "matches": [
     {
       "id": "500-1412954",
@@ -269,13 +269,14 @@
       "oddsMovement": "相对初始：主胜升0.06 · 平局降0.45 · 客胜升0.35；较上次：主胜不变 · 平局不变 · 客胜不变",
       "changeReason": "最新赔率复核后仍维持主胜，方向未发生改判。",
       "createdAt": "2026-08-01T16:33:53+08:00",
-      "updatedAt": "2026-08-04T05:21:57+08:00",
-      "finalScore": "",
-      "actualOutcome": "",
-      "primaryHit": null,
-      "executionHit": null,
-      "directionHit": null,
-      "hitType": null
+      "updatedAt": "2026-08-04T11:36:32+08:00",
+      "finalScore": "2-0",
+      "actualOutcome": "主胜",
+      "primaryHit": true,
+      "executionHit": true,
+      "directionHit": true,
+      "hitType": "primary",
+      "finishedAt": "2026-08-04 08:00"
     },
     {
       "id": "500-1362727",
@@ -577,12 +578,13 @@
       "changeReason": "最新赔率复核后仍维持客胜，方向未发生改判。 已进入开赛前90分钟临场窗口，最终结论锁定为客胜。",
       "createdAt": "2026-08-01T16:33:53+08:00",
       "updatedAt": "2026-08-04T00:40:43+08:00",
-      "finalScore": "",
-      "actualOutcome": "",
-      "primaryHit": null,
-      "executionHit": null,
-      "directionHit": null,
-      "hitType": null
+      "finalScore": "0-2",
+      "actualOutcome": "客胜",
+      "primaryHit": true,
+      "executionHit": true,
+      "directionHit": true,
+      "hitType": "primary",
+      "finishedAt": "2026-08-04 01:00"
     },
     {
       "id": "500-1362722",
@@ -821,12 +823,13 @@
       "changeReason": "最新赔率复核后仍维持主胜，方向未发生改判。 已进入开赛前90分钟临场窗口，最终结论锁定为主胜。",
       "createdAt": "2026-08-01T16:33:53+08:00",
       "updatedAt": "2026-08-04T00:40:43+08:00",
-      "finalScore": "",
-      "actualOutcome": "",
-      "primaryHit": null,
-      "executionHit": null,
-      "directionHit": null,
-      "hitType": null
+      "finalScore": "6-0",
+      "actualOutcome": "主胜",
+      "primaryHit": true,
+      "executionHit": true,
+      "directionHit": true,
+      "hitType": "primary",
+      "finishedAt": "2026-08-04 01:00"
     },
     {
       "id": "500-1363707",
@@ -1098,12 +1101,13 @@
       "changeReason": "最新赔率复核后仍维持客胜，方向未发生改判。",
       "createdAt": "2026-08-01T16:33:53+08:00",
       "updatedAt": "2026-08-03T21:20:34+08:00",
-      "finalScore": "",
-      "actualOutcome": "",
-      "primaryHit": null,
-      "executionHit": null,
-      "directionHit": null,
-      "hitType": null
+      "finalScore": "3-0",
+      "actualOutcome": "主胜",
+      "primaryHit": false,
+      "executionHit": false,
+      "directionHit": false,
+      "hitType": "miss",
+      "finishedAt": "2026-08-04 00:00"
     },
     {
       "id": "500-1412957",
