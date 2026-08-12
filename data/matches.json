@@ -2,7 +2,7 @@
   "meta": {
     "product": "AI足球赛事研判指挥舱 HTML授权版",
     "modelName": "Local AI 5.5",
-    "generatedAt": "2026-08-12T23:14:16+08:00",
+    "generatedAt": "2026-08-13T01:11:58+08:00",
     "source": "500彩票网竞彩日常更新 + Interwetten五年历史画像",
     "matchCount": 7,
     "baseHistorySample": 21138,
@@ -14,7 +14,7 @@
       "status": "success",
       "historyRows": 5196,
       "warnings": [
-        "7场实时情报使用保留或降级数据：艾卜哈vs拉斯决心、巴黎圣曼vs维拉、普拉滕斯vs科金博联、帕梅拉斯vs波特诺",
+        "7场实时情报使用保留或降级数据：帕梅拉斯vs波特诺、普拉滕斯vs科金博联、艾卜哈vs拉斯决心、巴黎圣曼vs维拉",
         "500完整赛事目录更新失败，已保留上一版：<urlopen error [Errno 111] Connection refused>"
       ]
     },
@@ -14459,7 +14459,7 @@
         },
         "shape": "1.6/3.48/4.6",
         "movement": "主胜不变 · 平局降0.10 · 客胜升0.15",
-        "movementCombo": "相对初始：主胜不变 · 平局降0.10 · 客胜升0.15；较上次：主胜升0.04 · 平局降0.12 · 客胜降0.15",
+        "movementCombo": "相对初始：主胜不变 · 平局降0.10 · 客胜升0.15；较上次：主胜不变 · 平局不变 · 客胜不变",
         "favorite": "主胜",
         "favoriteOdds": 1.6,
         "favoriteChange": "不变",
@@ -14469,9 +14469,9 @@
         "dropSide": "平局",
         "dropBucket": "降0.10",
         "previous": {
-          "home": 1.56,
-          "draw": 3.6,
-          "away": 4.75
+          "home": 1.6,
+          "draw": 3.48,
+          "away": 4.6
         },
         "deltaFromInitial": {
           "home": 0.0,
@@ -14479,9 +14479,9 @@
           "away": 0.15
         },
         "deltaFromPrevious": {
-          "home": 0.04,
-          "draw": -0.12,
-          "away": -0.15
+          "home": 0.0,
+          "draw": 0.0,
+          "away": 0.0
         },
         "movementMagnitude": 0.15
       },
@@ -14762,7 +14762,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-11T15:36:45+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 1.6,
           "draw": 3.58,
@@ -14811,7 +14811,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 1.6,
@@ -15079,7 +15079,7 @@
         },
         "shape": "1.88/2.67/4.5",
         "movement": "主胜升0.14 · 平局降0.38 · 客胜升0.10",
-        "movementCombo": "相对初始：主胜升0.14 · 平局降0.38 · 客胜升0.10；较上次：主胜升0.07 · 平局降0.11 · 客胜降0.10",
+        "movementCombo": "相对初始：主胜升0.14 · 平局降0.38 · 客胜升0.10；较上次：主胜不变 · 平局不变 · 客胜不变",
         "favorite": "主胜",
         "favoriteOdds": 1.88,
         "favoriteChange": "升0.14",
@@ -15089,9 +15089,9 @@
         "dropSide": "平局",
         "dropBucket": "降0.38",
         "previous": {
-          "home": 1.81,
-          "draw": 2.78,
-          "away": 4.6
+          "home": 1.88,
+          "draw": 2.67,
+          "away": 4.5
         },
         "deltaFromInitial": {
           "home": 0.14,
@@ -15099,9 +15099,9 @@
           "away": 0.1
         },
         "deltaFromPrevious": {
-          "home": 0.07,
-          "draw": -0.11,
-          "away": -0.1
+          "home": 0.0,
+          "draw": 0.0,
+          "away": 0.0
         },
         "movementMagnitude": 0.38
       },
@@ -15372,7 +15372,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-11T15:36:45+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 1.74,
           "draw": 3.05,
@@ -15410,7 +15410,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 1.88,
@@ -15918,7 +15918,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-11T15:36:45+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 1.19,
           "draw": 5.1,
@@ -15956,7 +15956,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 1.22,
@@ -16430,7 +16430,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-12T15:51:49+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 2.32,
           "draw": 3.15,
@@ -16474,7 +16474,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 2.32,
@@ -16894,7 +16894,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-12T15:51:49+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 4.45,
           "draw": 4.2,
@@ -16932,7 +16932,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 4.45,
@@ -17342,7 +17342,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-12T15:51:49+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 1.49,
           "draw": 3.6,
@@ -17380,7 +17380,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 1.49,
@@ -17793,7 +17793,7 @@
       "analysisTracking": {
         "status": "steady",
         "firstSeenAt": "2026-08-12T15:51:49+08:00",
-        "updatedAt": "2026-08-12T23:14:16+08:00",
+        "updatedAt": "2026-08-13T01:11:58+08:00",
         "initialOdds": {
           "home": 2.02,
           "draw": 2.7,
@@ -17831,7 +17831,7 @@
           "reason": "首次载入赛事，已保存初始赔率与初始研判。"
         },
         "latest": {
-          "at": "2026-08-12T23:14:16+08:00",
+          "at": "2026-08-13T01:11:58+08:00",
           "stage": "latest",
           "odds": {
             "home": 2.02,
