@@ -2,7 +2,7 @@
   "meta": {
     "product": "AI足球赛事研判指挥舱 HTML授权版",
     "modelName": "Local AI 5.5",
-    "generatedAt": "2026-08-26T18:51:36+08:00",
+    "generatedAt": "2026-08-26T23:52:26+08:00",
     "source": "500彩票网竞彩日常更新 + Interwetten五年历史画像",
     "matchCount": 15,
     "baseHistorySample": 21138,
@@ -11,10 +11,20 @@
     "finishedSample": 26425,
     "historyRange": "2021-07-02 至 2026-08-26",
     "dailyUpdate": {
-      "status": "success",
+      "status": "failed-preserved",
       "historyRows": 5393,
       "warnings": [
-        "15场实时情报使用保留或降级数据：纽卡斯尔vs西布罗姆、安养FCvs仁川联、大田市民vs蔚山现代、热刺vs查尔顿",
+        "500 最新竞彩更新失败，已保留上一版赛事：HTTP Error 502: Bad Gateway",
+        "2026-08-26 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-25 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-24 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-23 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-22 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-21 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-20 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-19 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-18 历史赛果更新失败：HTTP Error 502: Bad Gateway",
+        "2026-08-17 历史赛果更新失败：HTTP Error 502: Bad Gateway",
         "500完整赛事目录更新失败，已保留上一版：<urlopen error [Errno 111] Connection refused>"
       ]
     },
