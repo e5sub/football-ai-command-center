@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-13T12:46:22+08:00",
+  "updatedAt": "2026-09-13T19:50:51+08:00",
   "matches": [
     {
       "id": "500-history-2025-08-08-周五004",
@@ -67515,6 +67515,32 @@
       "homeOdds": 1.14,
       "drawOdds": 8.82,
       "awayOdds": 16.72
+    },
+    {
+      "id": "500-history-2026-09-13-周日001",
+      "league": "日职",
+      "round": "周日001",
+      "date": "2026-09-13 17:00",
+      "home": "东京绿茵",
+      "away": "千叶市原",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 2.21,
+      "drawOdds": 3.17,
+      "awayOdds": 3.25
+    },
+    {
+      "id": "500-history-2026-09-13-周日002",
+      "league": "日职乙",
+      "round": "周日002",
+      "date": "2026-09-13 17:00",
+      "home": "仙台七夕",
+      "away": "札幌冈萨多",
+      "homeScore": 1,
+      "awayScore": 1,
+      "homeOdds": 1.55,
+      "drawOdds": 3.93,
+      "awayOdds": 5.17
     }
   ]
 }
